@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}BUILTASUPPLY | Procurement made practical{% endblock %}
+{% block content %}
+<style>
+  .entry { padding: 56px 0 40px; }
+  .entry__eyebrow { color: var(--green); font-size: .78rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+  .entry__grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(250px, .75fr); gap: 48px; align-items: end; margin-top: 18px; }
+  .entry h1 { color: var(--navy); font-size: clamp(2.3rem, 6vw, 4.5rem); letter-spacing: -.055em; line-height: .98; margin: 0; max-width: 760px; }
+  .entry__lede { color: var(--muted); font-size: 1.12rem; margin: 24px 0 0; max-width: 610px; }
+  .entry__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .entry__actions .button { margin-top: 0; }
+  .entry__note { border-left: 4px solid var(--green); color: var(--muted); font-size: .95rem; padding: 5px 0 5px 16px; }
+  .entry__band { background: var(--navy); color: #fff; display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 64px; }
+  .entry__band div { border-right: 1px solid rgba(255,255,255,.22); padding: 22px 24px; }
+  .entry__band div:last-child { border-right: 0; }
+  .entry__band strong { display: block; font-size: .82rem; letter-spacing: .075em; text-transform: uppercase; }
+  .entry__band span { color: #d8e2eb; display: block; font-size: .92rem; margin-top: 5px; }
+  .entry__footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; margin-top: 36px; padding-top: 20px; }
+  .button:focus-visible, .brand:focus-visible { outline: 3px solid #216869; outline-offset: 3px; }
+  @media (max-width: 680px) { .entry { padding-top: 38px; } .entry__grid { grid-template-columns: 1fr; gap: 28px; } .entry__band { grid-template-columns: 1fr; margin-top: 42px; } .entry__band div { border-bottom: 1px solid rgba(255,255,255,.22); border-right: 0; } .entry__band div:last-child { border-bottom: 0; } }
+</style>
+<section class="entry" aria-labelledby="entry-title">
+  <p class="entry__eyebrow">Philippine construction procurement</p>
+  <div class="entry__grid">
+    <div>
+      <h1 id="entry-title">The practical way to source what your project needs.</h1>
+      <p class="entry__lede">BUILTASUPPLY connects project teams with approved suppliers for clear product discovery, dependable ordering, and accountable supply operations.</p>
+      <div class="entry__actions">
+        <a class="button" href="{% url 'shop-home' %}">Browse Supplies</a>
+        <a class="button secondary" href="{% url 'accounts:login' %}">Login</a>
+        <a class="button secondary" href="{% url 'accounts:register' %}">Register</a>
+      </div>
+    </div>
+    <p class="entry__note">Supplier enrollment and operational administration are available only after secure sign-in and authorization.</p>
+  </div>
+  <div class="entry__band" aria-label="BUILTASUPPLY service principles">
+    <div><strong>Approved supply</strong><span>Products are reviewed before purchase.</span></div>
+    <div><strong>Order clarity</strong><span>One checkout, supplier-specific fulfillment.</span></div>
+    <div><strong>PHP by default</strong><span>Built for the Philippine market.</span></div>
+  </div>
+</section>
+<p class="entry__footer">Independent procurement marketplace for construction and project supply.</p>
+{% endblock %}

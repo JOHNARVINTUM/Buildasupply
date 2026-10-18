@@ -1,0 +1,13 @@
+import uuid
+from django.db import models
+from apps.suppliers.models import Supplier
+from apps.orders.models import SupplierOrder
+class Wallet(models.Model):
+    supplier=models.ForeignKey(Supplier,on_delete=models.PROTECT,related_name="wallets");currency=models.CharField(max_length=3,default="PHP");pending_cached=models.BigIntegerField(default=0);available_cached=models.BigIntegerField(default=0);lifetime_earned_cached=models.BigIntegerField(default=0);lifetime_paid_out_cached=models.BigIntegerField(default=0);updated_at=models.DateTimeField(auto_now=True)
+    class Meta:constraints=[models.UniqueConstraint(fields=["supplier","currency"],name="one_supplier_currency_wallet")]
+class WalletLedgerEntry(models.Model):
+    class Type(models.TextChoices): SALE="SALE","Sale"; PLATFORM_FEE="PLATFORM_FEE","Platform fee"; REFUND="REFUND","Refund"; RESERVE_RELEASE="RESERVE_RELEASE","Reserve release"; PAYOUT="PAYOUT","Payout"; ADJUSTMENT="ADJUSTMENT","Adjustment"; REVERSAL="REVERSAL","Reversal"; SETTLEMENT="SETTLEMENT","Settlement"
+    id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False);wallet=models.ForeignKey(Wallet,on_delete=models.PROTECT,related_name="entries");entry_type=models.CharField(max_length=24,choices=Type.choices);bucket=models.CharField(max_length=12,choices=[("PENDING","Pending"),("AVAILABLE","Available")]);amount_minor=models.BigIntegerField();currency=models.CharField(max_length=3);reference=models.CharField(max_length=160,unique=True);source_type=models.CharField(max_length=100);source_id=models.UUIDField(null=True,blank=True);status=models.CharField(max_length=16,default="POSTED");reason=models.CharField(max_length=500,blank=True);created_at=models.DateTimeField(auto_now_add=True);posted_at=models.DateTimeField(auto_now_add=True)
+class SettlementRecord(models.Model):
+    class Status(models.TextChoices): PENDING="PENDING","Pending";ELIGIBLE="ELIGIBLE","Eligible";RELEASED="RELEASED","Released";HELD="HELD","Held";REVERSED="REVERSED","Reversed"
+    supplier_order=models.OneToOneField(SupplierOrder,on_delete=models.PROTECT,related_name="settlement");wallet=models.ForeignKey(Wallet,on_delete=models.PROTECT,related_name="settlements");gross_minor=models.PositiveBigIntegerField();platform_fee_minor=models.PositiveBigIntegerField();net_pending_minor=models.BigIntegerField();currency=models.CharField(max_length=3);policy_snapshot=models.JSONField(default=dict);eligible_at=models.DateTimeField(null=True,blank=True);status=models.CharField(max_length=16,choices=Status.choices,default=Status.PENDING);released_at=models.DateTimeField(null=True,blank=True)
