@@ -37,3 +37,91 @@ class CustomerCatalogCartTests(TestCase):
         with self.assertRaises(ValidationError):add_item(customer=self.customer.customer_profile,product=self.product,quantity=1)
         with self.assertRaises(ValidationError):add_item(customer=self.customer.customer_profile,product=self.product,quantity=11)
         self.product.inventory.refresh_from_db();self.assertEqual(self.product.inventory.reserved_quantity,0)
+
+
+class CartBrowserWorkflowTests(CustomerCatalogCartTests):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.customer)
+
+    def _add_url(self, product=None):
+        return f"/shop/products/{(product or self.product).id}/add/"
+
+    def test_product_detail_adds_product_and_existing_item_does_not_duplicate(self):
+        response = self.client.get(f"/shop/products/{self.product.id}/")
+        self.assertContains(response, "Add to cart")
+        response = self.client.post(self._add_url(), {"quantity": 2}, follow=True)
+        self.assertRedirects(response, "/shop/cart/")
+        cart = get_active_cart(self.customer.customer_profile)
+        self.assertEqual(cart.items.count(), 1)
+        response = self.client.post(self._add_url(), {"quantity": 4})
+        self.assertEqual(response.status_code, 302)
+        item = cart.items.get()
+        self.assertEqual(item.quantity, 4)
+
+    def test_add_to_cart_rejects_invalid_moq_and_stock(self):
+        response = self.client.post(self._add_url(), {"quantity": 1})
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "minimum order quantity", status_code=400)
+        response = self.client.post(self._add_url(), {"quantity": 11})
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "no longer available", status_code=400)
+        self.assertEqual(get_active_cart(self.customer.customer_profile).items.count(), 0)
+
+    def test_cart_update_remove_and_empty_state(self):
+        item = add_item(customer=self.customer.customer_profile, product=self.product, quantity=2)
+        update_url = f"/shop/cart/items/{item.pk}/update/"
+        response = self.client.post(update_url, {"quantity": 5}, follow=True)
+        self.assertRedirects(response, "/shop/cart/")
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 5)
+        response = self.client.post(update_url, {"quantity": 1}, follow=True)
+        self.assertContains(response, "minimum order quantity")
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 5)
+        remove_url = f"/shop/cart/items/{item.pk}/remove/"
+        self.assertEqual(self.client.get(remove_url).status_code, 404)
+        response = self.client.post(remove_url, follow=True)
+        self.assertContains(response, "Your cart is empty")
+        self.assertFalse(get_active_cart(self.customer.customer_profile).items.exists())
+
+    def test_cart_groups_multiple_suppliers_and_displays_totals(self):
+        owner, supplier = register_supplier(email="owner-two@cart.com", password1="Strongpass123!", full_name="Owner Two", phone="3", legal_name="Legal Two", display_name="B Supply", business_phone="3")
+        second = create_product(supplier=supplier, actor=owner, name="Primer", sku="P2", category=self.category, description="", unit_of_measure="can", minimum_order_quantity=1, amount_minor=20000)
+        submit_for_review(product=second, actor=owner); moderate_product(product=second, actor=self.admin, approve=True); transition_supplier(supplier=supplier, actor=self.admin, status="APPROVED")
+        record_movement(inventory_id=second.inventory.id, actor=owner, movement_type="RESTOCK", quantity_delta=3, reason="Opening")
+        add_item(customer=self.customer.customer_profile, product=self.product, quantity=2)
+        add_item(customer=self.customer.customer_profile, product=second, quantity=1)
+        response = self.client.get("/shop/cart/")
+        self.assertEqual(len(response.context["supplier_groups"]), 2)
+        self.assertContains(response, "A Supply")
+        self.assertContains(response, "B Supply")
+        self.assertContains(response, "Cart total")
+
+    def test_cart_validation_warns_for_price_and_availability_changes(self):
+        add_item(customer=self.customer.customer_profile, product=self.product, quantity=2)
+        price = self.product.prices.get()
+        price.is_active = False
+        price.save()
+        from apps.catalog.models import ProductPrice
+        from django.utils import timezone
+        ProductPrice.objects.create(product=self.product, amount_minor=130000, currency="PHP", starts_at=timezone.now())
+        response = self.client.get("/shop/cart/")
+        self.assertContains(response, "price changed")
+        self.assertNotContains(response, "Proceed to checkout")
+        self.supplier.operational_status = "INACTIVE"
+        self.supplier.save()
+        response = self.client.get("/shop/cart/")
+        self.assertContains(response, "supplier is not currently available")
+
+    def test_cart_actions_are_customer_owned_and_require_customer_role(self):
+        item = add_item(customer=self.customer.customer_profile, product=self.product, quantity=2)
+        other = register_customer(email="browser-other@cart.com", password1="Strongpass123!", full_name="Other", phone="4")
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(f"/shop/cart/items/{item.pk}/update/", {"quantity": 2}).status_code, 404)
+        self.assertEqual(self.client.post(f"/shop/cart/items/{item.pk}/remove/").status_code, 404)
+        self.client.logout()
+        self.assertEqual(self.client.post(self._add_url(), {"quantity": 2}).status_code, 302)
+        supplier_user, _ = register_supplier(email="browser-supplier@cart.com", password1="Strongpass123!", full_name="Supplier", phone="5", legal_name="Browser Supplier", display_name="Browser Supplier", business_phone="5")
+        self.client.force_login(supplier_user)
+        self.assertEqual(self.client.post(self._add_url(), {"quantity": 2}).status_code, 403)

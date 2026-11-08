@@ -9,8 +9,9 @@ from apps.carts.services import add_item
 from apps.customers.models import CustomerAddress
 from apps.inventory.services import record_movement
 from apps.orders.services import checkout
-from .models import Payment
-from .services import PaymentFailure, confirm_payment, create_refund, initiate_payment, process_webhook
+from apps.wallets.models import SettlementRecord
+from .models import Payment, PaymentReconciliation, RefundWalletReversal, WebhookEvent
+from .services import PaymentFailure, approve_refund, complete_refund, confirm_payment, create_refund, initiate_payment, initiate_refund, process_refund_webhook, process_webhook, resolve_payment_reconciliation
 User=get_user_model()
 class PaymentTests(TestCase):
     def setUp(self):
@@ -19,15 +20,178 @@ class PaymentTests(TestCase):
     def _payment(self):
         from apps.orders.models import MasterOrder
         return initiate_payment(customer=self.customer.customer_profile,order=MasterOrder.objects.get(pk=self.order_id),provider_code="demo",method_category="EWALLET",idempotency_key="pay-1")
+    def _webhook(self,payment,event_id):
+        body=json.dumps({"event_id":event_id,"provider_reference":payment.provider_reference,"merchant_reference":payment.internal_reference,"amount_minor":payment.amount_minor,"currency":payment.currency,"status":"SUCCESS"}).encode()
+        signature=hmac.new(os.environ["BUILTASUPPLY_DEMO_WEBHOOK_SECRET"].encode(),body,hashlib.sha256).hexdigest()
+        return body,{"X-Builtasupply-Signature":signature}
     def test_webhook_consumes_reservation_once(self):
-        result=self._payment();payment=Payment.objects.get(pk=result["payment_id"]);body=json.dumps({"event_id":"evt-1","provider_reference":payment.provider_reference,"status":"SUCCESS"}).encode();sig=hmac.new(os.environ["BUILTASUPPLY_DEMO_WEBHOOK_SECRET"].encode(),body,hashlib.sha256).hexdigest()
-        self.assertFalse(process_webhook(provider_code="demo",raw_body=body,headers={"X-Builtasupply-Signature":sig})["duplicate"]);self.assertTrue(process_webhook(provider_code="demo",raw_body=body,headers={"X-Builtasupply-Signature":sig})["duplicate"])
+        result=self._payment();payment=Payment.objects.get(pk=result["payment_id"]);body,headers=self._webhook(payment,"evt-1")
+        self.assertFalse(process_webhook(provider_code="demo",raw_body=body,headers=headers)["duplicate"]);self.assertTrue(process_webhook(provider_code="demo",raw_body=body,headers=headers)["duplicate"])
         payment.refresh_from_db();self.product.inventory.refresh_from_db();self.assertEqual(payment.status,"PAID");self.assertEqual(self.product.inventory.reserved_quantity,0);self.assertEqual(self.product.inventory.sold_quantity,2);self.assertEqual(self.product.inventory.movements.filter(movement_type="SALE").count(),1)
     def test_invalid_signature_and_payment_idempotency(self):
         first=self._payment();second=self._payment();self.assertTrue(second["idempotent"])
         with self.assertRaises(PaymentFailure):process_webhook(provider_code="demo",raw_body=b'{}',headers={"X-Builtasupply-Signature":"bad"})
+
+    def test_different_keys_reuse_the_one_pending_attempt(self):
+        first=self._payment();second=initiate_payment(customer=self.customer.customer_profile,order=Payment.objects.get(pk=first["payment_id"]).master_order,provider_code="demo",method_category="EWALLET",idempotency_key="pay-2")
+        self.assertTrue(second["pending_attempt_reused"]);self.assertEqual(first["attempt_id"],second["attempt_id"]);self.assertEqual(Payment.objects.get(pk=first["payment_id"]).attempts.count(),1)
+
+    def test_failed_attempt_can_retry_with_a_new_key_without_two_active_attempts(self):
+        first=self._payment();payment=Payment.objects.get(pk=first["payment_id"]);payment.attempts.update(status="FAILED")
+        retry=initiate_payment(customer=self.customer.customer_profile,order=payment.master_order,provider_code="demo",method_category="EWALLET",idempotency_key="retry-key")
+        payment.refresh_from_db();self.assertNotEqual(first["attempt_id"],retry["attempt_id"]);self.assertEqual(payment.attempts.filter(status="PENDING").count(),1)
+
+    def test_paid_webhook_rejects_missing_or_incorrect_verified_values(self):
+        payment=Payment.objects.get(pk=self._payment()["payment_id"])
+        for event_id,changes in [("missing-amount",{"amount_minor":None}),("wrong-amount",{"amount_minor":1}),("missing-currency",{"currency":None}),("wrong-currency",{"currency":"USD"}),("wrong-reference",{"merchant_reference":"wrong"})]:
+            payload={"event_id":event_id,"provider_reference":payment.provider_reference,"merchant_reference":payment.internal_reference,"amount_minor":payment.amount_minor,"currency":"PHP","status":"SUCCESS"};payload.update(changes)
+            body=json.dumps({key:value for key,value in payload.items() if value is not None}).encode();signature=hmac.new(os.environ["BUILTASUPPLY_DEMO_WEBHOOK_SECRET"].encode(),body,hashlib.sha256).hexdigest()
+            with self.assertRaises(PaymentFailure):process_webhook(provider_code="demo",raw_body=body,headers={"X-Builtasupply-Signature":signature})
+        payment.refresh_from_db();self.assertEqual(payment.status,"PENDING")
     def test_refund_allocation_and_over_refund_blocked(self):
         result=self._payment();payment=Payment.objects.get(pk=result["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-refund",event_type="SUCCESS",normalized_status="PAID");payment.refresh_from_db();so=payment.master_order.supplier_orders.first();item=so.items.first()
-        refund=create_refund(payment=payment,actor=self.customer,allocations=[{"supplier_order":so,"order_item":item,"amount_minor":1000}],idempotency_key="refund-1",reason="Test")
+        refund=create_refund(payment=payment,actor=User.objects.get(email="admin@payment.com"),allocations=[{"supplier_order":so,"order_item":item,"amount_minor":1000}],idempotency_key="refund-1",reason="Test")
         self.assertEqual(refund.amount_minor,1000)
-        with self.assertRaises(PaymentFailure):create_refund(payment=payment,actor=self.customer,allocations=[{"supplier_order":so,"order_item":item,"amount_minor":10000}],idempotency_key="refund-2",reason="Test")
+        with self.assertRaises(PaymentFailure):create_refund(payment=payment,actor=User.objects.get(email="admin@payment.com"),allocations=[{"supplier_order":so,"order_item":item,"amount_minor":10000}],idempotency_key="refund-2",reason="Test")
+
+    def _approved_refund(self, payment, amount, key="refund-lifecycle"):
+        admin=User.objects.get(email="admin@payment.com");so=payment.master_order.supplier_orders.first();item=so.items.first()
+        refund=create_refund(payment=payment,actor=admin,allocations=[{"supplier_order":so,"order_item":item,"quantity":1,"amount_minor":amount}],idempotency_key=key,reason="Test refund")
+        approve_refund(refund=refund,actor=admin,approve=True);return initiate_refund(refund=refund,actor=admin)
+
+    def test_refund_partial_completion_updates_payment_and_wallet_once(self):
+        payment=Payment.objects.get(pk=self._payment()["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-paid-partial",event_type="SUCCESS",normalized_status="PAID")
+        refund=self._approved_refund(payment,5000)
+        completed=complete_refund(refund=refund,provider_event_id="refund-event-partial",event_type="SUCCESS",normalized_status="COMPLETED",actor=User.objects.get(email="admin@payment.com"))
+        complete_refund(refund=completed,provider_event_id="refund-event-partial",event_type="SUCCESS",normalized_status="COMPLETED")
+        payment.refresh_from_db();wallet=payment.master_order.supplier_orders.first().supplier.wallets.get();self.assertEqual(completed.status,"COMPLETED");self.assertEqual(payment.refunded_minor,5000);self.assertEqual(payment.status,"PARTIALLY_REFUNDED")
+        self.assertEqual(wallet.entries.filter(entry_type="REFUND").count(),1);self.assertEqual(RefundWalletReversal.objects.get().status,"APPLIED")
+
+    def test_full_refund_provider_webhook_and_failure_do_not_fake_completion(self):
+        payment=Payment.objects.get(pk=self._payment()["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-paid-full",event_type="SUCCESS",normalized_status="PAID")
+        failed=self._approved_refund(payment,1000,"refund-failed");complete_refund(refund=failed,provider_event_id="refund-event-failed",event_type="FAILED",normalized_status="FAILED")
+        failed.refresh_from_db();payment.refresh_from_db();self.assertEqual(failed.status,"FAILED");self.assertEqual(payment.refunded_minor,0)
+        refund=self._approved_refund(payment,9000,"refund-full")
+        body=json.dumps({"kind":"REFUND","event_id":"refund-event-full","provider_reference":refund.provider_reference,"status":"SUCCESS","amount_minor":9000,"currency":"PHP"}).encode();signature=hmac.new(os.environ["BUILTASUPPLY_DEMO_WEBHOOK_SECRET"].encode(),body,hashlib.sha256).hexdigest()
+        process_refund_webhook(provider_code="demo",raw_body=body,headers={"X-Builtasupply-Signature":signature})
+        payment.refresh_from_db();refund.refresh_from_db();self.assertEqual(refund.status,"COMPLETED");self.assertEqual(payment.refunded_minor,9000);self.assertEqual(payment.status,"PARTIALLY_REFUNDED")
+
+    def test_full_refund_marks_payment_refunded(self):
+        payment=Payment.objects.get(pk=self._payment()["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-paid-total",event_type="SUCCESS",normalized_status="PAID")
+        refund=self._approved_refund(payment,10000,"refund-total")
+        complete_refund(refund=refund,provider_event_id="refund-event-total",event_type="SUCCESS",normalized_status="COMPLETED")
+        payment.refresh_from_db();refund.refresh_from_db();self.assertEqual(refund.status,"COMPLETED");self.assertEqual(payment.refunded_minor,10000);self.assertEqual(payment.status,"REFUNDED")
+
+    def test_refund_rejects_non_admin_and_excessive_item_quantity(self):
+        payment=Payment.objects.get(pk=self._payment()["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-paid-auth",event_type="SUCCESS",normalized_status="PAID")
+        so=payment.master_order.supplier_orders.first();item=so.items.first();admin=User.objects.get(email="admin@payment.com")
+        with self.assertRaises(Exception):create_refund(payment=payment,actor=self.customer,allocations=[{"supplier_order":so,"order_item":item,"amount_minor":1000}],idempotency_key="refund-no-auth",reason="Test")
+        with self.assertRaises(PaymentFailure):create_refund(payment=payment,actor=admin,allocations=[{"supplier_order":so,"order_item":item,"quantity":3,"amount_minor":1000}],idempotency_key="refund-quantity",reason="Test")
+
+    def test_released_wallet_never_becomes_negative_after_refund(self):
+        payment=Payment.objects.get(pk=self._payment()["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-paid-wallet",event_type="SUCCESS",normalized_status="PAID")
+        from apps.wallets.services import release_settlement
+        settlement=payment.master_order.supplier_orders.first().supplier.wallets.get().settlements.get();settlement.supplier_order.status="COMPLETED";settlement.supplier_order.save();release_settlement(settlement)
+        refund=self._approved_refund(payment,10000,"refund-released");complete_refund(refund=refund,provider_event_id="refund-event-released",event_type="SUCCESS",normalized_status="COMPLETED")
+        wallet=payment.master_order.supplier_orders.first().supplier.wallets.get();wallet.refresh_from_db();self.assertEqual(wallet.available_cached,0);self.assertEqual(RefundWalletReversal.objects.get().bucket,"AVAILABLE")
+
+    def _expire_order(self):
+        from django.core.management import call_command
+        from django.utils import timezone
+        from apps.inventory.models import InventoryReservation
+        InventoryReservation.objects.filter(supplier_order__master_order_id=self.order_id).update(expires_at=timezone.now())
+        call_command("expire_reservations")
+
+    def test_late_paid_webhook_is_durable_and_idempotent_without_fulfillment(self):
+        result=self._payment();payment=Payment.objects.get(pk=result["payment_id"])
+        self._expire_order()
+        body,headers=self._webhook(payment,"evt-late")
+        first=process_webhook(provider_code="demo",raw_body=body,headers=headers)
+        second=process_webhook(provider_code="demo",raw_body=body,headers=headers)
+        payment.refresh_from_db();payment.master_order.refresh_from_db();self.product.inventory.refresh_from_db()
+        reconciliation=PaymentReconciliation.objects.get(payment=payment)
+        self.assertTrue(first["reconciliation_required"]);self.assertTrue(second["duplicate"])
+        self.assertEqual(second["reconciliation_id"],str(reconciliation.id))
+        self.assertEqual(payment.status,"PENDING");self.assertEqual(payment.master_order.status,"CANCELLED")
+        self.assertEqual(self.product.inventory.sold_quantity,0)
+        self.assertEqual(SettlementRecord.objects.count(),0)
+        self.assertEqual(WebhookEvent.objects.get(provider_event_id="evt-late").processing_status,"LATE_PAYMENT_REQUIRES_RECONCILIATION")
+        self.assertEqual(reconciliation.history.count(),1)
+
+    def test_superadmin_can_reallocate_late_payment_once(self):
+        result=self._payment();payment=Payment.objects.get(pk=result["payment_id"]);self._expire_order()
+        body,headers=self._webhook(payment,"evt-reallocate");process_webhook(provider_code="demo",raw_body=body,headers=headers)
+        reconciliation=PaymentReconciliation.objects.get(payment=payment)
+        admin=User.objects.get(email="admin@payment.com")
+        resolved=resolve_payment_reconciliation(reconciliation=reconciliation,actor=admin,resolution="REALLOCATE",notes="Stock rechecked")
+        duplicate=resolve_payment_reconciliation(reconciliation=reconciliation,actor=admin,resolution="REALLOCATE",notes="retry")
+        payment.refresh_from_db();payment.master_order.refresh_from_db();self.product.inventory.refresh_from_db()
+        self.assertEqual(resolved.status,"REALLOCATED");self.assertEqual(duplicate.id,resolved.id)
+        self.assertEqual(payment.status,"PAID");self.assertEqual(payment.master_order.status,"PROCESSING")
+        self.assertEqual(self.product.inventory.sold_quantity,2)
+        self.assertEqual(self.product.inventory.movements.filter(movement_type="SALE").count(),1)
+
+    def test_reallocation_fails_safely_when_stock_is_not_available(self):
+        result=self._payment();payment=Payment.objects.get(pk=result["payment_id"]);self._expire_order()
+        body,headers=self._webhook(payment,"evt-no-stock");process_webhook(provider_code="demo",raw_body=body,headers=headers)
+        self.product.inventory.available_quantity=0;self.product.inventory.status="OUT_OF_STOCK";self.product.inventory.save()
+        reconciliation=PaymentReconciliation.objects.get(payment=payment)
+        with self.assertRaises(PaymentFailure):resolve_payment_reconciliation(reconciliation=reconciliation,actor=User.objects.get(email="admin@payment.com"),resolution="REALLOCATE")
+        reconciliation.refresh_from_db();payment.refresh_from_db();self.assertEqual(reconciliation.status,"OPEN");self.assertEqual(payment.status,"PENDING")
+
+    def test_refund_required_is_a_record_not_a_fake_refund_and_requires_superadmin(self):
+        result=self._payment();payment=Payment.objects.get(pk=result["payment_id"]);self._expire_order()
+        body,headers=self._webhook(payment,"evt-refund-required");process_webhook(provider_code="demo",raw_body=body,headers=headers)
+        reconciliation=PaymentReconciliation.objects.get(payment=payment)
+        with self.assertRaises(Exception):resolve_payment_reconciliation(reconciliation=reconciliation,actor=self.customer,resolution="REFUND_REQUIRED")
+        resolved=resolve_payment_reconciliation(reconciliation=reconciliation,actor=User.objects.get(email="admin@payment.com"),resolution="REFUND_REQUIRED",notes="Provider refund needed")
+        self.assertEqual(resolved.status,"REFUND_REQUIRED");self.assertEqual(payment.refunds.count(),0)
+
+
+class PaymentBrowserWorkflowTests(PaymentTests):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.customer)
+
+    def _select_url(self):
+        return f"/shop/orders/{self.order_id}/payment/"
+
+    def _payload(self):
+        return {
+            "method_category": "EWALLET",
+            "idempotency_key": self.client.session[f"customer_payment_idempotency:{self.order_id}"],
+        }
+
+    def test_customer_can_start_demo_payment_without_marking_order_paid(self):
+        response = self.client.get(self._select_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Amount due")
+        response = self.client.post(self._select_url(), self._payload(), follow=True)
+        self.assertEqual(response.status_code, 200)
+        payment = Payment.objects.get(master_order_id=self.order_id)
+        self.assertEqual(payment.amount_minor, 10000)
+        self.assertEqual(payment.currency, "PHP")
+        self.assertEqual(payment.status, "PENDING")
+        payment.master_order.refresh_from_db()
+        self.assertEqual(payment.master_order.payment_status, "PENDING")
+        self.assertContains(response, "Payment is confirmed only after a verified provider webhook")
+
+    def test_repeated_browser_submission_creates_one_attempt(self):
+        self.client.get(self._select_url())
+        payload = self._payload()
+        self.assertEqual(self.client.post(self._select_url(), payload).status_code, 302)
+        self.assertEqual(self.client.post(self._select_url(), payload).status_code, 302)
+        payment = Payment.objects.get(master_order_id=self.order_id)
+        self.assertEqual(payment.attempts.count(), 1)
+
+    def test_payment_pages_are_customer_scoped_and_browser_cannot_confirm(self):
+        self.client.get(self._select_url())
+        self.client.post(self._select_url(), self._payload())
+        payment = Payment.objects.get(master_order_id=self.order_id)
+        self.assertEqual(self.client.get(f"/shop/payments/{payment.pk}/").status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, "PENDING")
+        other = register_customer(email="other-payment-browser@example.com", password1="Strongpass123!", full_name="Other", phone="7")
+        self.client.force_login(other)
+        self.assertEqual(self.client.get(self._select_url()).status_code, 404)
+        self.assertEqual(self.client.get(f"/shop/payments/{payment.pk}/").status_code, 404)

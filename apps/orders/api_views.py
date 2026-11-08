@@ -6,7 +6,7 @@ from .services import CheckoutFailure, checkout
 class CheckoutView(APIView):
     def post(self,request):
         if not hasattr(request.user,"customer_profile"):return Response({"detail":"Customer access required."},status=403)
-        try:return Response(checkout(customer=request.user.customer_profile,idempotency_key=request.headers.get("Idempotency-Key")),status=201)
+        try:return Response(checkout(customer=request.user.customer_profile,idempotency_key=request.headers.get("Idempotency-Key"),address_id=request.data.get("address_id")),status=201)
         except CheckoutFailure as exc:return Response(exc.message_dict,status=400)
 class CustomerOrdersView(APIView):
     def get(self,request):

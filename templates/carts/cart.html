@@ -1,1 +1,22 @@
-{% extends 'base.html' %}{% block content %}<section class="panel" style="max-width:100%"><div class="status">CART · ESTIMATED TOTALS</div><h1>Your cart</h1>{% if denied %}<p>Customer access is required to view a cart.</p>{% elif not cart.items.exists %}<p>Your cart is empty. <a href="/shop/browse/">Browse Supplies</a></p>{% else %}{% for item in cart.items.all %}<article style="border-bottom:1px solid var(--line);padding:14px 0"><strong>{{ item.product.name }}</strong><br><span class="muted">{{ item.product.supplier.display_name }} · {{ item.quantity }} × ₱{{ item.displayed_price_minor|floatformat:-2 }}</span></article>{% endfor %}{% if not validation.valid %}<p class="notice">Some items changed. Review current price and availability before checkout.</p>{% endif %}<a class="button" href="/shop/checkout/">Review checkout</a>{% endif %}</section>{% endblock %}
+{% extends 'base.html' %}
+{% load currency %}
+{% block content %}
+<section class="panel" style="max-width:100%"><div class="status">CART · ESTIMATED TOTALS</div><h1>Your cart</h1>
+{% if not cart.items.exists %}
+  <p>Your cart is empty. <a href="{% url 'shop-browse' %}">Browse supplies</a></p>
+{% else %}
+  {% if not validation.valid %}<p class="notice">Some cart items need attention before checkout. Update or remove each item with an issue.</p>{% endif %}
+  {% for group in supplier_groups %}
+    <section style="border-top:2px solid var(--navy);padding:18px 0"><h2 style="margin:0">{{ group.supplier.display_name }}</h2><p class="muted">Supplier items</p>
+    {% for line in group.lines %}<article style="border-top:1px solid var(--line);padding:18px 0;display:grid;grid-template-columns:minmax(80px,120px) 1fr auto;gap:16px;align-items:start">
+      <div>{% if line.image %}<img src="{{ line.image.file.url }}" alt="{{ line.image.alt_text|default:line.item.product.name }}" style="max-width:100%;height:auto">{% else %}<span class="muted">No image</span>{% endif %}</div>
+      <div><strong>{{ line.item.product.name }}</strong><p class="muted" style="margin:4px 0">{{ line.item.product.unit_of_measure }} · Minimum {{ line.item.product.minimum_order_quantity }} · {{ line.item.displayed_price_minor|php }} each</p>{% if not line.validation.valid %}<p class="notice"><strong>Action required:</strong> {{ line.validation_message }}{% if line.validation.current_price_minor %} Current price: {{ line.validation.current_price_minor|php }}.{% endif %}</p>{% endif %}<form method="post" action="{% url 'shop-cart-item-update' line.item.pk %}">{% csrf_token %}<label for="{{ line.form.quantity.id_for_label }}">Quantity</label>{{ line.form.quantity }}<button type="submit">Update quantity</button></form></div>
+      <div><strong>{{ line.subtotal_minor|php }}</strong><form method="post" action="{% url 'shop-cart-item-remove' line.item.pk %}">{% csrf_token %}<button type="submit" class="secondary">Remove item</button></form></div>
+    </article>{% endfor %}
+    <p style="text-align:right"><strong>Supplier subtotal: {{ group.subtotal_minor|php }}</strong></p></section>
+  {% endfor %}
+  <p style="font-size:1.2rem;text-align:right"><strong>Cart total: {{ cart_total_minor|php }}</strong></p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap"><a class="button secondary" href="{% url 'shop-browse' %}">Continue shopping</a>{% if validation.valid %}<a class="button" href="{% url 'shop-checkout' %}">Proceed to checkout</a>{% else %}<span class="button secondary" aria-disabled="true">Resolve cart issues before checkout</span>{% endif %}</div>
+{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}{{ page_title }} · BUILTASUPPLY{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:720px"><div class="status">MY ACCOUNT · DELIVERY ADDRESS</div><h1>{{ page_title }}</h1><p class="muted">Fields marked required are needed for checkout.</p><form method="post" novalidate>{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<div{% if field.name == 'is_default' %} style="margin-top:20px"{% endif %}>{% if field.name == 'is_default' %}<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="{{ field.html_name }}"{% if field.value %} checked{% endif %} style="width:auto"> {{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% endif %}{{ field.errors }}</div>{% endfor %}<button type="submit">Save address</button><a class="button secondary" href="{% url 'customers:address-list' %}">Cancel</a></form></section>
+{% endblock %}

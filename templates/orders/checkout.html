@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load currency %}
+{% block title %}Checkout · BUILTASUPPLY{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:960px"><div class="status">CHECKOUT REVIEW · PAYMENT PENDING</div><h1>Review your order</h1>
+{% if not cart.items.exists %}<p class="notice">Your cart is empty. Add supplies before checking out.</p><a class="button" href="{% url 'shop-browse' %}">Browse supplies</a>
+{% else %}
+  {% if not validation.valid %}<p class="notice">Your cart has changed. Resolve the issues below before placing an order.</p><a class="button secondary" href="{% url 'shop-cart' %}">Back to cart</a>{% else %}
+  <p class="muted">Stock will be reserved for 30 minutes after your order is created. Payment remains pending until a payment method is implemented and confirmed.</p>
+  <form method="post" action="{% url 'shop-checkout-submit' %}">{% csrf_token %}{{ form.idempotency_key }}{{ form.non_field_errors }}
+    <h2>Delivery address</h2>{{ form.delivery_address.errors }}
+    {% for address in addresses %}<label style="border:1px solid var(--line);padding:14px;display:block;margin-top:10px"><input type="radio" name="delivery_address" value="{{ address.pk }}"{% if address.is_selected_for_checkout %} checked{% endif %} style="width:auto"> <strong>{{ address.recipient_name }}</strong>{% if address.is_default %} <span style="color:var(--green)">Default</span>{% endif %}<br><span class="muted">{{ address.phone }} · {{ address.address_line1 }}{% if address.address_line2 %}, {{ address.address_line2 }}{% endif %}, {% if address.barangay %}{{ address.barangay }}, {% endif %}{{ address.city }}, {{ address.province }} {{ address.postal_code }}</span></label>{% empty %}<p class="notice">No delivery address is available.</p>{% endfor %}
+    <p><a class="secondary button" href="{% url 'customers:address-list' %}">Manage addresses</a></p>
+    <h2>Order summary</h2>{% for group in supplier_groups %}<section style="border-top:1px solid var(--line);padding:12px 0"><strong>{{ group.supplier.display_name }}</strong>{% for line in group.items %}<p>{{ line.item.product.name }} · {{ line.item.quantity }} × {{ line.item.displayed_price_minor|php }} <span style="float:right">{{ line.line_total_minor|php }}</span></p>{% endfor %}<p style="text-align:right"><strong>Supplier subtotal: {{ group.subtotal_minor|php }}</strong></p></section>{% endfor %}
+    <p>Items subtotal <span style="float:right">{{ subtotal_minor|php }}</span></p><p>Discount <span style="float:right">{{ discount_minor|php }}</span></p><p>Tax <span style="float:right">{{ tax_minor|php }}</span></p><p>Delivery <span style="float:right">{{ delivery_fee_minor|php }}</span></p><p style="font-size:1.2rem;border-top:2px solid var(--navy);padding-top:12px"><strong>Order total</strong><strong style="float:right">{{ total_minor|php }}</strong></p>
+    <button type="submit">Place order</button><a class="button secondary" href="{% url 'shop-cart' %}">Back to cart</a>
+  </form>{% endif %}
+{% endif %}
+</section>
+{% endblock %}

@@ -25,6 +25,25 @@ class CatalogTests(TestCase):
         client=APIClient();client.force_authenticate(manager)
         response=client.post("/api/v1/products/",{"name":"Sand","sku":"S-1","category":str(self.category.id),"unit_of_measure":"bag","amount_minor":100})
         self.assertEqual(response.status_code,201)
+    def test_supplier_can_create_a_private_draft_from_the_catalog_page(self):
+        self.client.force_login(self.owner)
+        response=self.client.post("/supplier/products/create/", {"name":"Draft cement","sku":"DRAFT-1","unit_of_measure":"bag","minimum_order_quantity":1,"price_php":"350.00","opening_stock":8})
+        self.assertRedirects(response, "/supplier/products/")
+        product=Product.objects.get(supplier=self.supplier, sku="DRAFT-1")
+        self.assertEqual(product.status,"DRAFT")
+        self.assertEqual(product.inventory.available_quantity,8)
+    def test_supplier_can_edit_only_own_supply(self):
+        self.client.force_login(self.owner)
+        response=self.client.post(f"/supplier/products/{self.product.id}/edit/", {"name":"Updated cement","sku":"C-1","category":str(self.category.id),"description":"Updated","unit_of_measure":"bag","minimum_order_quantity":1,"price_php":"325.50","stock_quantity":6})
+        self.assertRedirects(response,"/supplier/products/")
+        self.product.refresh_from_db();self.product.inventory.refresh_from_db()
+        self.assertEqual(self.product.name,"Updated cement")
+        self.assertEqual(self.product.inventory.available_quantity,6)
+    def test_supplier_can_submit_own_draft_for_review(self):
+        self.client.force_login(self.owner)
+        response=self.client.post(f"/supplier/products/{self.product.id}/submit/")
+        self.assertRedirects(response,"/supplier/products/")
+        self.product.refresh_from_db();self.assertEqual(self.product.status,"PENDING_REVIEW")
 class InventoryTests(TestCase):
     def setUp(self):
         self.user,self.supplier=register_supplier(email="i@x.com",password1="Strongpass123!",full_name="I",phone="1",legal_name="Legal",display_name="Supply I",business_phone="1")

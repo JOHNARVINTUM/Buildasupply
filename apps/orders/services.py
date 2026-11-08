@@ -13,12 +13,12 @@ class CheckoutFailure(ValidationError): pass
 def _fingerprint(cart):
     material="|".join(f"{x.product_id}:{x.quantity}:{x.displayed_price_minor}:{x.displayed_currency}" for x in cart.items.order_by("product_id"))
     return hashlib.sha256(material.encode()).hexdigest()
-def _address_snapshot(customer):
-    address=customer.addresses.filter(is_default=True).first() or customer.addresses.first()
+def _address_snapshot(customer, address_id=None):
+    address = customer.addresses.filter(pk=address_id).first() if address_id else (customer.addresses.filter(is_default=True).first() or customer.addresses.first())
     if not address: raise CheckoutFailure({"code":"DELIVERY_ADDRESS_REQUIRED"})
     return {key:getattr(address,key) for key in ("recipient_name","phone","address_line1","address_line2","barangay","city","province","postal_code","country")}
 @transaction.atomic
-def checkout(*,customer,idempotency_key):
+def checkout(*,customer,idempotency_key,address_id=None):
     if not idempotency_key: raise CheckoutFailure({"code":"IDEMPOTENCY_REQUIRED"})
     from apps.carts.models import Cart
     prior=CheckoutIdempotency.objects.select_related("master_order").filter(customer=customer,key=idempotency_key).first()
@@ -46,7 +46,7 @@ def checkout(*,customer,idempotency_key):
         if code:errors.append({"product":product.name,"code":code,"previous_price":item.displayed_price_minor,"current_price":price.amount_minor if price else None})
         else:validated.append((item,product,inventory,price))
     if errors: raise CheckoutFailure({"code":"CHECKOUT_VALIDATION_FAILED","errors":errors})
-    address=_address_snapshot(customer); subtotal=sum(item.quantity*price.amount_minor for item,_,_,price in validated); membership=get_active_membership(customer) or {}
+    address=_address_snapshot(customer, address_id=address_id); subtotal=sum(item.quantity*price.amount_minor for item,_,_,price in validated); membership=get_active_membership(customer) or {}
     order_number=f"BS-{timezone.now():%Y%m%d}-{token.pk:06d}"
     master=MasterOrder.objects.create(order_number=order_number,customer=customer,currency="PHP",subtotal_minor=subtotal,total_minor=subtotal,membership_snapshot=membership)
     by_supplier=defaultdict(list)

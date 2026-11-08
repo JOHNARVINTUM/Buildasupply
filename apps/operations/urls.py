@@ -1,3 +1,3 @@
 from django.urls import path
 from . import views
-urlpatterns=[path("",views.dashboard,name="operations-home"),path("dashboard/",views.dashboard,name="operations-dashboard"),path("audit/",views.audit_view,name="operations-audit")]
+urlpatterns=[path("",views.dashboard,name="operations-home"),path("dashboard/",views.dashboard,name="operations-dashboard"),path("users/",views.users,name="operations-users"),path("users/<uuid:pk>/status/",views.update_user_status,name="operations-user-status"),path("suppliers/",views.suppliers,name="operations-suppliers"),path("suppliers/<uuid:pk>/status/",views.update_supplier_status,name="operations-supplier-status"),path("suppliers/<uuid:pk>/products/",views.supplier_products,name="operations-supplier-products"),path("suppliers/<uuid:supplier_pk>/products/<uuid:product_pk>/status/",views.update_product_status,name="operations-product-status"),path("audit/",views.audit_view,name="operations-audit")]

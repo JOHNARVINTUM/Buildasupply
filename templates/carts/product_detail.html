@@ -1,1 +1,17 @@
-{% extends 'base.html' %}{% block content %}<section class="panel" style="max-width:900px">{% if not product %}<div class="status">SUPPLY UNAVAILABLE</div><h1>Product unavailable</h1><p class="muted">This supply is no longer available for purchase.</p><a class="button" href="/shop/browse/">Browse Supplies</a>{% else %}<div class="status">{{ product.inventory.status|upper }} · CURRENT PRICE</div><div style="display:grid;grid-template-columns:minmax(220px,1fr) 1.4fr;gap:32px"><div style="min-height:220px;border:1px solid var(--line);padding:18px"><p class="muted">{% if product.images.all %}Product image{% else %}Image unavailable{% endif %}</p></div><div><p class="muted">{{ product.category.name }} · {{ product.supplier.display_name }}</p><h1>{{ product.name }}</h1><p><strong>₱{{ product.current_amount|floatformat:-2 }}</strong> / {{ product.unit_of_measure }}</p><p class="notice">{% if product.inventory.available_quantity <= product.inventory.low_stock_threshold %}Low stock — order soon.{% else %}In stock{% endif %}</p><p>Minimum order: {{ product.minimum_order_quantity }} {{ product.unit_of_measure }}</p><p>{{ product.description }}</p><a class="button" href="/shop/cart/">Manage cart</a></div></div>{% endif %}</section>{% endblock %}
+{% extends 'base.html' %}
+{% load currency %}
+{% block content %}
+<section class="panel" style="max-width:900px">
+{% if not product %}
+  <div class="status">SUPPLY UNAVAILABLE</div><h1>Product unavailable</h1><p class="muted">This supply is no longer available for purchase.</p><a class="button" href="{% url 'shop-browse' %}">Browse supplies</a>
+{% else %}
+  <div class="status">{{ product.inventory.status|upper }} · CURRENT PRICE</div>
+  <div style="display:grid;grid-template-columns:minmax(220px,1fr) 1.4fr;gap:32px">
+    <div style="min-height:220px;border:1px solid var(--line);padding:18px">{% with image=product.images.all|first %}{% if image %}<img src="{{ image.file.url }}" alt="{{ image.alt_text|default:product.name }}" style="max-width:100%;height:auto">{% else %}<p class="muted">Image unavailable</p>{% endif %}{% endwith %}</div>
+    <div><p class="muted">{{ product.category.name }} · {{ product.supplier.display_name }}</p><h1>{{ product.name }}</h1><p><strong>{{ product.current_amount|php }}</strong> / {{ product.unit_of_measure }}</p><p class="notice">{% if product.inventory.available_quantity <= product.inventory.low_stock_threshold %}Low stock — order soon.{% else %}In stock{% endif %}</p><p>Available: {{ product.inventory.available_quantity }} {{ product.unit_of_measure }}</p><p>Minimum order: {{ product.minimum_order_quantity }} {{ product.unit_of_measure }}</p><p>{{ product.description }}</p>
+    {% if user.is_authenticated and user.primary_role == 'CUSTOMER' %}<form method="post" action="{% url 'shop-add-to-cart' product.pk %}">{% csrf_token %}<label for="{{ form.quantity.id_for_label }}">Quantity</label>{{ form.quantity }}{{ form.quantity.errors }}<button type="submit">Add to cart</button><a class="button secondary" href="{% url 'shop-cart' %}">View cart</a></form>{% elif user.is_authenticated %}<p class="notice">Customer access is required to add products to a cart.</p>{% else %}<a class="button" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Sign in to add to cart</a>{% endif %}
+    </div>
+  </div>
+{% endif %}
+</section>
+{% endblock %}

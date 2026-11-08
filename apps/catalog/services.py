@@ -38,13 +38,23 @@ def archive_product(*, product, actor):
 @transaction.atomic
 def update_product(*, product, actor, **changes):
     allowed={"name","sku","description","category","unit_of_measure","minimum_order_quantity","public_availability"}
-    before={key:getattr(product,key) if key != "category" else product.category_id for key in changes if key in allowed}
+    before={key:getattr(product,key) if key != "category" else (str(product.category_id) if product.category_id else None) for key in changes if key in allowed}
     for key,value in changes.items():
         if key in allowed: setattr(product,key,value)
     if product.status == "APPROVED" and any(key in changes for key in {"name","sku","description","category","unit_of_measure","minimum_order_quantity"}):
         product.status="DRAFT"; product.reviewed_by=None; product.reviewed_at=None
     product.full_clean(); product.save()
     log_action(actor=actor,action="PRODUCT_UPDATED",target=product,before=before,after={"status":product.status})
+@transaction.atomic
+def update_product_price(*, product, actor, amount_minor):
+    current=current_price_for(product)
+    if current and current.amount_minor == amount_minor: return
+    if current:
+        current.is_active=False;current.ends_at=timezone.now();current.save(update_fields=["is_active","ends_at"])
+    ProductPrice.objects.create(product=product, amount_minor=amount_minor, currency="PHP", starts_at=timezone.now())
+    if product.status == "APPROVED":
+        product.status="DRAFT";product.reviewed_by=None;product.reviewed_at=None;product.save(update_fields=["status","reviewed_by","reviewed_at","updated_at"])
+    log_action(actor=actor, action="PRODUCT_PRICE_UPDATED", target=product, after={"amount_minor":amount_minor,"status":product.status})
 @transaction.atomic
 def transition_supplier(*, supplier, actor, status, reason=""):
     allowed={"PENDING_REVIEW":{"APPROVED","REJECTED","SUSPENDED"},"APPROVED":{"SUSPENDED"},"SUSPENDED":{"APPROVED"},"REJECTED":set()}

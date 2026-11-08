@@ -9,6 +9,7 @@ class Category(models.Model):
     name = models.CharField(max_length=120); slug = models.SlugField(unique=True); description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True); display_order = models.PositiveIntegerField(default=0)
     class Meta: indexes = [models.Index(fields=["parent", "is_active", "display_order"])]
+    def __str__(self): return self.name
     def clean(self):
         if self.parent_id == self.id: from django.core.exceptions import ValidationError; raise ValidationError("A category cannot be its own parent.")
         ancestor = self.parent

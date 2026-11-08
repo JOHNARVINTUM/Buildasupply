@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Manage Addresses · BUILTASUPPLY{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:900px">
+  <div class="status">MY ACCOUNT · DELIVERY ADDRESSES</div>
+  <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap"><div><h1>Manage addresses</h1><p class="muted">Choose the address BUILTASUPPLY will use by default at checkout.</p></div><a class="button" href="{% url 'customers:address-create' %}">Add new address</a></div>
+  {% for address in addresses %}<article style="border-top:1px solid var(--line);padding:20px 0"><div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap"><div>{% if address.is_default %}<strong style="color:var(--green)">DEFAULT DELIVERY ADDRESS</strong>{% endif %}<h2 style="margin:6px 0">{{ address.recipient_name }}</h2><div>{{ address.phone }}</div><div>{{ address.address_line1 }}{% if address.address_line2 %}, {{ address.address_line2 }}{% endif %}</div><div>{% if address.barangay %}{{ address.barangay }}, {% endif %}{{ address.city }}, {{ address.province }}{% if address.postal_code %} {{ address.postal_code }}{% endif %}</div><div>{{ address.country }}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="button secondary" href="{% url 'customers:address-edit' address.pk %}">Edit</a>{% if not address.is_default %}<form method="post" action="{% url 'customers:address-set-default' address.pk %}">{% csrf_token %}<button type="submit" class="secondary">Set as default</button></form>{% endif %}<a class="button secondary" href="{% url 'customers:address-delete' address.pk %}">Delete</a></div></div></article>{% empty %}<div style="border-top:1px solid var(--line);padding:28px 0"><h2>No delivery addresses yet</h2><p class="muted">Add a delivery address before you proceed to checkout.</p><a class="button" href="{% url 'customers:address-create' %}">Add new address</a></div>{% endfor %}
+  <p><a class="secondary button" href="/shop/">Back to shopping</a></p>
+</section>
+{% endblock %}
