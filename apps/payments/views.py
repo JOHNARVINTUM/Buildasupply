@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from apps.orders.models import MasterOrder
 from .forms import DemoPaymentForm
 from .models import Payment
-from .services import PaymentFailure, initiate_payment
+from .services import PaymentFailure, initiate_payment, select_cod
 
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,29 @@ def payment_select(request, order_id):
     else:
         form = DemoPaymentForm(initial={"idempotency_key": key})
     return render(request, "payments/select.html", _payment_context(order, form), status=400 if request.method == "POST" and form.errors else 200)
+
+
+@login_required
+def cod_select(request, order_id):
+    """Select COD for an already-created, reservation-backed customer order."""
+    if request.method != "POST":
+        return redirect("shop-order-confirmation", pk=order_id)
+    customer = _customer_for(request)
+    order = _owned_order(customer, order_id)
+    try:
+        select_cod(customer=customer, order=order)
+    except PaymentFailure as error:
+        code = error.message_dict.get("code", "")
+        if isinstance(code, list):
+            code = code[0]
+        messages.error(request, {
+            "COD_NOT_ELIGIBLE": "Cash on delivery is no longer available for this order.",
+            "ONLINE_PAYMENT_ALREADY_INITIATED": "An online payment was already started for this order.",
+            "ORDER_ACCESS_DENIED": "You cannot select a payment method for this order.",
+        }.get(code, "Cash on delivery could not be selected. Please review your order."))
+    else:
+        messages.success(request, "Cash on delivery selected. Payment will be collected for each supplier order upon delivery.")
+    return redirect("shop-order-confirmation", pk=order.pk)
 
 
 def _owned_payment(customer, pk):

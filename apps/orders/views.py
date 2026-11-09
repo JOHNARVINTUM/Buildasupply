@@ -8,7 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.carts.services import get_active_cart, validate_cart
-from .forms import CheckoutSubmissionForm
+from .forms import CODCancellationForm, CheckoutSubmissionForm
 from .models import MasterOrder
 from .services import CheckoutFailure, checkout
 
@@ -135,25 +135,97 @@ def checkout_submit(request):
 def _owned_order(customer, pk):
     return get_object_or_404(
         MasterOrder.objects.filter(customer=customer)
-        .prefetch_related("supplier_orders__items", "supplier_orders__delivery", "financial_lines"),
+        .prefetch_related("supplier_orders__items", "supplier_orders__delivery", "supplier_orders__cod_collection", "supplier_orders__cod_receipt_confirmation", "supplier_orders__cod_exceptions", "financial_lines"),
         pk=pk,
     )
 
 
+def _cod_context(order):
+    """Presentation-only COD facts derived from persisted records, never request data."""
+    from apps.inventory.models import InventoryReservation
+    from apps.payments.models import CODCommitment, CODException, Payment
+
+    try:
+        commitment = order.cod_commitment
+    except CODCommitment.DoesNotExist:
+        commitment = None
+    order.is_cod = bool(commitment and commitment.status == "ACTIVE")
+    order.can_cancel_cod = bool(order.is_cod and not order.supplier_orders.exclude(status="PENDING_SUPPLIER").exists())
+    order.cod_eligible = (
+        order.status == "PENDING_PAYMENT"
+        and order.payment_status == "PENDING"
+        and not Payment.objects.filter(master_order=order).exists()
+        and InventoryReservation.objects.filter(supplier_order__master_order=order, status="ACTIVE").exists()
+    )
+    order.total_php = order.total_minor / 100
+    for supplier_order in order.supplier_orders.all():
+        supplier_order.total_php = supplier_order.total_minor / 100
+        supplier_order.collection = getattr(supplier_order, "cod_collection", None)
+        supplier_order.receipt_confirmation = getattr(supplier_order, "cod_receipt_confirmation", None)
+        supplier_order.open_exception = next((item for item in supplier_order.cod_exceptions.all() if item.status in {CODException.Status.FAILED_DELIVERY, CODException.Status.DISPUTED}), None)
+        supplier_order.collection_status = "Collection recorded" if supplier_order.collection else "Awaiting collection"
+        if supplier_order.open_exception:
+            supplier_order.collection_status = "Collection disputed" if supplier_order.open_exception.status == CODException.Status.DISPUTED else "Delivery exception reported"
+        supplier_order.delivery_status = supplier_order.delivery.status if hasattr(supplier_order, "delivery") else "PENDING"
+        for item in supplier_order.items.all():
+            item.unit_price_php = item.unit_price_minor / 100
+            item.line_total_php = item.line_total_minor / 100
+    return order
+
+
 @login_required
 def order_confirmation(request, pk):
-    order = _owned_order(_customer_for(request), pk)
+    order = _cod_context(_owned_order(_customer_for(request), pk))
     return render(request, "orders/confirmation.html", {"order": order, "delivery": order.supplier_orders.first().delivery})
 
 
 @login_required
 def order_detail(request, pk):
-    order = _owned_order(_customer_for(request), pk)
+    order = _cod_context(_owned_order(_customer_for(request), pk))
     return render(request, "orders/detail.html", {"order": order, "delivery": order.supplier_orders.first().delivery})
 
 
 @login_required
 def order_history(request):
     customer = _customer_for(request)
-    orders = MasterOrder.objects.filter(customer=customer).order_by("-placed_at")
+    orders = MasterOrder.objects.filter(customer=customer).prefetch_related("supplier_orders__cod_collection", "supplier_orders__cod_receipt_confirmation").order_by("-placed_at")
+    for order in orders:
+        _cod_context(order)
     return render(request, "orders/history.html", {"orders": orders})
+
+
+@login_required
+def confirm_cod_receipt(request, pk, supplier_order_id):
+    if request.method != "POST":
+        return redirect("shop-order-detail", pk=pk)
+    customer = _customer_for(request)
+    order = _owned_order(customer, pk)
+    supplier_order = get_object_or_404(order.supplier_orders.all(), pk=supplier_order_id)
+    from apps.payments.services import PaymentFailure, confirm_cod_receipt as confirm_receipt
+    try:
+        confirm_receipt(supplier_order=supplier_order, customer=customer)
+    except (PaymentFailure, PermissionDenied) as error:
+        messages.error(request, "Receipt cannot be confirmed until this supplier order has been delivered.")
+    else:
+        messages.success(request, f"Receipt confirmed for {supplier_order.supplier_name_snapshot}.")
+    return redirect("shop-order-detail", pk=order.pk)
+
+
+@login_required
+def cancel_cod_order(request, pk):
+    if request.method != "POST":
+        return redirect("shop-order-detail", pk=pk)
+    customer = _customer_for(request)
+    order = _owned_order(customer, pk)
+    form = CODCancellationForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Provide a cancellation reason.")
+        return redirect("shop-order-detail", pk=order.pk)
+    from apps.payments.services import PaymentFailure, cancel_cod_before_acceptance
+    try:
+        cancel_cod_before_acceptance(order=order, actor=request.user, reason=form.cleaned_data["reason"])
+    except (PaymentFailure, PermissionDenied):
+        messages.error(request, "This COD order can no longer be cancelled online because fulfillment has already progressed.")
+    else:
+        messages.success(request, "Your COD order was cancelled and its active inventory reservations were released.")
+    return redirect("shop-order-detail", pk=order.pk)

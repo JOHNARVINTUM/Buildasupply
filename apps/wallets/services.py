@@ -41,7 +41,10 @@ def release_settlement(settlement,actor=None):
     wallet=Wallet.objects.select_for_update().get(pk=settlement.wallet_id);amount=settlement.net_pending_minor
     WalletLedgerEntry.objects.create(wallet=wallet,entry_type="SETTLEMENT",bucket="PENDING",amount_minor=-amount,currency=wallet.currency,reference=f"settlement-pending:{settlement.id}",source_type="wallets.SettlementRecord",source_id=settlement.id)
     WalletLedgerEntry.objects.create(wallet=wallet,entry_type="SETTLEMENT",bucket="AVAILABLE",amount_minor=amount,currency=wallet.currency,reference=f"settlement-available:{settlement.id}",source_type="wallets.SettlementRecord",source_id=settlement.id)
-    settlement.status="RELEASED";settlement.released_at=timezone.now();settlement.save(update_fields=["status","released_at"]);refresh_cached(wallet);return settlement
+    settlement.status="RELEASED";settlement.released_at=timezone.now();settlement.save(update_fields=["status","released_at"]);refresh_cached(wallet)
+    from apps.notifications.services import emit, supplier_recipient_ids
+    emit("settlement.released",settlement,{"recipient_ids":supplier_recipient_ids(settlement.supplier_order.supplier),"order_number":settlement.supplier_order.master_order.order_number,"link":"/supplier/wallet/"})
+    return settlement
 @transaction.atomic
 def reverse_refund(refund,actor=None):
     """Reverse only a provider-completed refund, without creating supplier debt automatically."""
@@ -63,6 +66,10 @@ def reverse_refund(refund,actor=None):
         wallet=wallets[settlement.wallet_id];bucket="AVAILABLE" if settlement.status=="RELEASED" else "PENDING";available=balances(wallet)[bucket.lower()]
         if available < allocation.amount_minor:
             reversal.wallet=wallet;reversal.bucket=bucket;reversal.status="HELD";reversal.reason="INSUFFICIENT_%s_BALANCE_DEBT_POLICY_REQUIRED" % bucket;reversal.save(update_fields=["wallet","bucket","status","reason","updated_at"])
+            from apps.notifications.services import emit, supplier_recipient_ids, superadmin_recipient_ids
+            payload={"order_number":allocation.supplier_order.master_order.order_number,"priority":"HIGH"}
+            emit("refund.reversal_held",refund,{"recipient_ids":supplier_recipient_ids(allocation.supplier_order.supplier),"link":"/supplier/wallet/",**payload})
+            emit("refund.reversal_held",refund,{"recipient_ids":superadmin_recipient_ids(),"link":"/operations/cod/held-reversals/",**payload})
             log_action(actor=actor,action="REFUND_WALLET_REVERSAL_HELD",target=refund,after={"allocation_id":allocation.id,"wallet_id":wallet.id,"amount_minor":allocation.amount_minor});continue
         reference=f"refund:{refund.id}:{allocation.id}"
         WalletLedgerEntry.objects.get_or_create(reference=reference,defaults={"wallet":wallet,"entry_type":"REFUND","bucket":bucket,"amount_minor":-allocation.amount_minor,"currency":wallet.currency,"source_type":"payments.Refund","source_id":refund.id})

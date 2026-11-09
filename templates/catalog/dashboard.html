@@ -1,1 +1,10 @@
-{% extends 'base.html' %}{% block content %}<section class="panel" style="max-width:100%"><div class="status">SUPPLIER OPERATIONS · {{ supplier.get_approval_status_display }}</div><h1>{{ supplier.display_name }}</h1><p class="muted">{{ pending }} awaiting moderation · {{ low_stock }} low-stock products</p><p><a class="button" href="/supplier/products/">Review catalog</a></p><table><thead><tr><th>Product</th><th>Status</th><th>Stock</th></tr></thead><tbody>{% for p in products %}<tr><td>{{ p.name }}</td><td>{{ p.get_status_display }}</td><td>{{ p.inventory.available_quantity }}</td></tr>{% empty %}<tr><td colspan="3">No products yet.</td></tr>{% endfor %}</tbody></table></section>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<section class="panel" style="max-width:100%">
+  <div class="status">SUPPLIER OPERATIONS · {{ supplier.get_approval_status_display }}</div>
+  <h1>{{ supplier.display_name }}</h1>
+  <p class="muted">{{ pending }} awaiting moderation · {{ low_stock }} low-stock products</p>
+  <p><a class="button" href="{% url 'supplier-products' %}">Review catalog</a> <a class="button secondary" href="{% url 'supplier-cod-orders' %}">COD orders</a></p>
+  <table><thead><tr><th>Product</th><th>Status</th><th>Stock</th></tr></thead><tbody>{% for p in products %}<tr><td>{{ p.name }}</td><td>{{ p.get_status_display }}</td><td>{{ p.inventory.available_quantity }}</td></tr>{% empty %}<tr><td colspan="3">No products yet.</td></tr>{% endfor %}</tbody></table>
+</section>
+{% endblock %}

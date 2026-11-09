@@ -141,6 +141,8 @@ def _record_reconciliation(*, payment, order, webhook_event, event_data):
     )
     if created:
         PaymentReconciliationHistory.objects.create(reconciliation=reconciliation, action="LATE_PAYMENT_RECORDED", metadata={"payment_status": payment.status, "order_status": order.status})
+        from apps.notifications.services import emit, superadmin_recipient_ids
+        emit("payment.reconciliation_required",reconciliation,{"recipient_ids":superadmin_recipient_ids(),"order_number":order.order_number,"link":"/operations/cod/reconciliations/","priority":"HIGH"})
         log_action(actor=None, action="LATE_PAYMENT_REQUIRES_RECONCILIATION", target=reconciliation, after={"payment_id": str(payment.id), "order_id": str(order.id), "provider_event_id": webhook_event.provider_event_id})
     return reconciliation
 
@@ -196,6 +198,8 @@ def confirm_payment(*, payment, provider_event_id, event_type, normalized_status
         order.save(update_fields=["payment_status", "status"])
         SupplierOrder.objects.filter(master_order=order).exclude(status="CANCELLED").update(status="CANCELLED")
         payment.attempts.filter(status="PENDING").update(status="FAILED", completed_at=timezone.now(), failure_code="PROVIDER_FAILED")
+        from apps.notifications.services import emit
+        emit("payment.failed",payment,{"recipient_ids":[str(order.customer.user_id)],"order_number":order.order_number,"link":f"/shop/payments/{payment.id}/","priority":"HIGH"})
         log_action(actor=None, action="PAYMENT_FAILED_ORDER_CANCELLED", target=payment, after={"status": "FAILED", "order_status": "CANCELLED"})
     return {"payment": payment, "reconciliation": None}
 
@@ -370,7 +374,11 @@ def approve_refund(*, refund, actor, approve, reason=""):
         refund.status, refund.rejected_by, refund.rejected_at, refund.rejection_reason = Refund.Status.REJECTED, actor, timezone.now(), reason
         fields=["status","rejected_by","rejected_at","rejection_reason"]
         action="REFUND_REJECTED"
-    refund.save(update_fields=fields); log_action(actor=actor, action=action, target=refund, after={"status":refund.status}); return refund
+    refund.save(update_fields=fields)
+    if approve:
+        from apps.notifications.services import emit
+        emit("refund.approved",refund,{"recipient_ids":[str(refund.payment.master_order.customer.user_id)],"order_number":refund.payment.master_order.order_number,"link":f"/shop/orders/{refund.payment.master_order_id}/"})
+    log_action(actor=actor, action=action, target=refund, after={"status":refund.status}); return refund
 
 
 @transaction.atomic
@@ -383,6 +391,8 @@ def initiate_refund(*, refund, actor):
     result = get_adapter(payment.provider_code).create_refund(refund=refund, idempotency_key=refund.idempotency_key)
     refund.provider_code=payment.provider_code;refund.provider_reference=result["provider_reference"];refund.provider_status=result["status"];refund.provider_response=result.get("response",{});refund.status=Refund.Status.PROCESSING;refund.initiated_at=timezone.now()
     refund.save(update_fields=["provider_code","provider_reference","provider_status","provider_response","status","initiated_at"])
+    from apps.notifications.services import emit
+    emit("refund.processing",refund,{"recipient_ids":[str(order.customer.user_id)],"order_number":order.order_number,"link":f"/shop/orders/{order.id}/"})
     log_action(actor=actor,action="REFUND_PROVIDER_INITIATED",target=refund,after={"provider_reference":refund.provider_reference,"status":refund.status})
     return refund
 
@@ -405,10 +415,14 @@ def complete_refund(*, refund, provider_event_id, event_type, normalized_status,
         refund.status=Refund.Status.COMPLETED;refund.provider_status="COMPLETED";refund.completed_at=timezone.now();refund.save(update_fields=["status","provider_status","completed_at"])
         from apps.wallets.services import reverse_refund
         reverse_refund(refund,actor=actor)
+        from apps.notifications.services import emit
+        emit("refund.completed",refund,{"recipient_ids":[str(order.customer.user_id)],"order_number":order.order_number,"link":f"/shop/orders/{order.id}/"})
         log_action(actor=actor,action="REFUND_COMPLETED",target=refund,after={"payment_refunded_minor":payment.refunded_minor,"payment_status":payment.status})
     elif normalized_status == "FAILED":
         if refund.status == Refund.Status.PROCESSING:
             refund.status=Refund.Status.FAILED;refund.provider_status="FAILED";refund.failed_at=timezone.now();refund.save(update_fields=["status","provider_status","failed_at"])
+            from apps.notifications.services import emit
+            emit("refund.failed",refund,{"recipient_ids":[str(order.customer.user_id)],"order_number":order.order_number,"link":f"/shop/orders/{order.id}/","priority":"HIGH"})
             log_action(actor=actor,action="REFUND_FAILED",target=refund,after={"status":refund.status})
     event.processed_at=timezone.now();event.save(update_fields=["processed_at"])
     return refund
@@ -443,6 +457,8 @@ def select_cod(*, customer, order):
     commitment=CODCommitment.objects.create(master_order=order,selected_by=customer.user)
     order.status="COD_COMMITTED";order.payment_status="COD_PENDING";order.save(update_fields=["status","payment_status"])
     order.supplier_orders.update(status="PENDING_SUPPLIER")
+    from apps.notifications.services import emit
+    emit("cod.selected",commitment,{"recipient_ids":[str(customer.user_id)],"order_number":order.order_number,"link":f"/shop/orders/{order.id}/"})
     log_action(actor=customer.user,action="COD_SELECTED",target=commitment,after={"order_id":str(order.id)})
     return commitment
 
@@ -453,7 +469,10 @@ def accept_cod_supplier_order(*, supplier_order, actor):
     if not hasattr(supplier_order.master_order,"cod_commitment") or supplier_order.master_order.cod_commitment.status!="ACTIVE":raise PaymentFailure({"code":"COD_NOT_COMMITTED"})
     if supplier_order.status=="CONFIRMED":return supplier_order
     if supplier_order.status!="PENDING_SUPPLIER":raise PaymentFailure({"code":"INVALID_COD_TRANSITION"})
-    supplier_order.status="CONFIRMED";supplier_order.save(update_fields=["status"]);log_action(actor=actor,action="COD_SUPPLIER_ACCEPTED",target=supplier_order);return supplier_order
+    supplier_order.status="CONFIRMED";supplier_order.save(update_fields=["status"])
+    from apps.notifications.services import emit
+    emit("cod.supplier_accepted",supplier_order,{"recipient_ids":[str(supplier_order.master_order.customer.user_id)],"order_number":supplier_order.master_order.order_number,"supplier_name":supplier_order.supplier_name_snapshot,"link":f"/shop/orders/{supplier_order.master_order_id}/"})
+    log_action(actor=actor,action="COD_SUPPLIER_ACCEPTED",target=supplier_order);return supplier_order
 
 
 @transaction.atomic
@@ -464,6 +483,10 @@ def record_cod_collection(*, supplier_order, actor, amount_minor, currency, coll
     existing=CODCollection.objects.filter(supplier_order=supplier_order).first()
     if existing:return existing
     collection=CODCollection.objects.create(supplier_order=supplier_order,collected_by=actor,amount_minor=amount_minor,currency=currency,collection_reference=collection_reference,evidence_metadata=evidence_metadata or {})
+    from apps.notifications.services import emit, supplier_recipient_ids
+    payload={"order_number":supplier_order.master_order.order_number,"supplier_name":supplier_order.supplier_name_snapshot,"link":f"/shop/orders/{supplier_order.master_order_id}/"}
+    emit("cod.collection_recorded",supplier_order,{"recipient_ids":[str(supplier_order.master_order.customer.user_id)],**payload})
+    emit("cod.collection_recorded",supplier_order,{"recipient_ids":supplier_recipient_ids(supplier_order.supplier),**payload,"link":"/supplier/orders/"})
     log_action(actor=actor,action="COD_CASH_COLLECTED",target=collection,after={"supplier_order_id":str(supplier_order.id),"amount_minor":amount_minor})
     _complete_cod_if_confirmed(supplier_order);return collection
 
@@ -474,7 +497,11 @@ def confirm_cod_receipt(*, supplier_order, customer):
     if supplier_order.master_order.customer_id!=customer.id:raise PermissionDenied("Customer order access is required.")
     if supplier_order.status not in {"DELIVERED","COMPLETED"}:raise PaymentFailure({"code":"COD_RECEIPT_NOT_DELIVERED"})
     receipt,created=CODReceiptConfirmation.objects.get_or_create(supplier_order=supplier_order,defaults={"confirmed_by":customer.user})
-    if created:log_action(actor=customer.user,action="COD_RECEIPT_CONFIRMED",target=receipt,after={"supplier_order_id":str(supplier_order.id)})
+    if created:
+        from apps.notifications.services import emit, supplier_recipient_ids
+        emit("cod.receipt_confirmed",supplier_order,{"recipient_ids":[str(customer.user_id)],"order_number":supplier_order.master_order.order_number,"link":f"/shop/orders/{supplier_order.master_order_id}/"})
+        emit("cod.receipt_confirmed",supplier_order,{"recipient_ids":supplier_recipient_ids(supplier_order.supplier),"order_number":supplier_order.master_order.order_number,"link":"/supplier/orders/"})
+        log_action(actor=customer.user,action="COD_RECEIPT_CONFIRMED",target=receipt,after={"supplier_order_id":str(supplier_order.id)})
     _complete_cod_if_confirmed(supplier_order);return receipt
 
 
@@ -512,7 +539,12 @@ def cancel_cod_before_acceptance(*, order, actor, reason):
     commitment=CODCommitment.objects.select_for_update().get(master_order=order)
     if commitment.status!="ACTIVE" or order.supplier_orders.exclude(status="PENDING_SUPPLIER").exists():raise PaymentFailure({"code":"COD_CANCELLATION_NOT_ELIGIBLE"})
     release_reservations(master_order=order,actor=actor,expired=False);commitment.status="CANCELLED";commitment.cancelled_by=actor;commitment.cancelled_at=timezone.now();commitment.cancellation_reason=reason;commitment.save(update_fields=["status","cancelled_by","cancelled_at","cancellation_reason"])
-    order.status="CANCELLED";order.payment_status="CANCELLED";order.save(update_fields=["status","payment_status"]);order.supplier_orders.update(status="CANCELLED");log_action(actor=actor,action="COD_CANCELLED",target=commitment);return commitment
+    supplier_orders=list(order.supplier_orders.select_related("supplier"))
+    order.status="CANCELLED";order.payment_status="CANCELLED";order.save(update_fields=["status","payment_status"]);order.supplier_orders.update(status="CANCELLED")
+    from apps.notifications.services import emit, supplier_recipient_ids
+    for supplier_order in supplier_orders:
+        emit("cod.cancelled",supplier_order,{"recipient_ids":supplier_recipient_ids(supplier_order.supplier),"order_number":order.order_number,"link":"/supplier/orders/"})
+    log_action(actor=actor,action="COD_CANCELLED",target=commitment);return commitment
 
 
 @transaction.atomic
@@ -520,6 +552,9 @@ def report_cod_delivery_exception(*, supplier_order, actor, status, reason):
     supplier_order=SupplierOrder.objects.select_for_update().select_related("supplier").get(pk=supplier_order.pk);_cod_fulfillment_actor(actor,supplier_order.supplier)
     if status not in {CODException.Status.FAILED_DELIVERY,CODException.Status.DISPUTED} or not reason: raise PaymentFailure({"code":"INVALID_COD_EXCEPTION"})
     exception=CODException.objects.create(supplier_order=supplier_order,status=status,reason=reason,reported_by=actor)
+    from apps.notifications.services import emit, superadmin_recipient_ids
+    event_type="cod.failed_delivery" if status==CODException.Status.FAILED_DELIVERY else "cod.collection_disputed"
+    emit(event_type,supplier_order,{"recipient_ids":superadmin_recipient_ids(),"order_number":supplier_order.master_order.order_number,"link":f"/operations/cod/orders/{supplier_order.id}/","priority":"HIGH"})
     log_action(actor=actor,action=f"COD_{status}",target=exception);return exception
 
 
@@ -532,6 +567,8 @@ def verify_cod_return(*, exception, actor):
     for reservation in exception.supplier_order.inventory_reservations.filter(status="ACTIVE").order_by("pk"):
         release_reservation(reservation=reservation,actor=actor,reason="Verified COD returned stock")
     exception.status=CODException.Status.RETURN_VERIFIED;exception.resolved_at=timezone.now();exception.save(update_fields=["status","resolved_at"])
+    from apps.notifications.services import emit, supplier_recipient_ids
+    emit("cod.return_verified",exception.supplier_order,{"recipient_ids":supplier_recipient_ids(exception.supplier_order.supplier),"order_number":exception.supplier_order.master_order.order_number,"link":"/supplier/orders/"})
     log_action(actor=actor,action="COD_RETURN_VERIFIED",target=exception);return exception
 
 

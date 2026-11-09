@@ -65,6 +65,10 @@ def checkout(*,customer,idempotency_key,address_id=None):
         OrderFinancialLine.objects.create(master_order=master,supplier_order=so,line_type="SUBTOTAL",source="PRODUCT_PRICE",description="Product subtotal",amount_minor=amount,currency="PHP",calculation_basis={"items":len(rows)})
     OrderFinancialLine.objects.create(master_order=master,line_type="TOTAL",source="CHECKOUT",description="Order total",amount_minor=subtotal,currency="PHP",calculation_basis={"subtotal":subtotal,"discount":0,"tax":0,"platform_fee":0,"delivery_fee":0})
     cart.status="CHECKED_OUT";cart.save(update_fields=["status","updated_at"]);token.master_order=master;token.save(update_fields=["master_order"])
+    from apps.notifications.services import emit, supplier_recipient_ids
+    emit("order.created",master,{"recipient_ids":[str(customer.user_id)],"order_number":order_number,"link":f"/shop/orders/{master.id}/"})
+    for supplier_order in supplier_orders:
+        emit("supplier.order_assigned",supplier_order,{"recipient_ids":supplier_recipient_ids(supplier_order.supplier),"order_number":order_number,"link":"/supplier/orders/"})
     log_action(actor=customer.user,action="CHECKOUT_COMPLETED",target=master,after={"order_number":order_number,"total_minor":subtotal})
     return {"success":True,"master_order_id":str(master.id),"order_number":order_number,"supplier_orders":[str(x.id) for x in supplier_orders],"total_minor":subtotal,"currency":"PHP"}
 @transaction.atomic
@@ -73,8 +77,33 @@ def release_reservation(*,reservation,actor,reason):
     if reservation.status!="ACTIVE":raise ValidationError("Reservation is not active.")
     inv=reservation.inventory;inv.available_quantity+=reservation.quantity;inv.reserved_quantity-=reservation.quantity;inv.status="ACTIVE";inv.save(update_fields=["available_quantity","reserved_quantity","status","updated_at"])
     reservation.status="RELEASED";reservation.save(update_fields=["status","updated_at"]);InventoryMovement.objects.create(inventory=inv,movement_type="RESERVATION_RELEASE",quantity_delta=reservation.quantity,reason=reason,actor=actor,reference_type="orders.SupplierOrder",reference_id=reservation.supplier_order_id)
-def transition_supplier_order(*,supplier_order,actor,next_status):
+@transaction.atomic
+def transition_supplier_order(*,supplier_order,actor,next_status,delivery_data=None):
+    """Advance a supplier order through the fixed fulfillment state machine."""
     transitions={"PENDING_PAYMENT":{"PAID"},"PAID":{"PENDING_SUPPLIER"},"PENDING_SUPPLIER":{"CONFIRMED"},"CONFIRMED":{"PREPARING"},"PREPARING":{"READY_FOR_DELIVERY"},"READY_FOR_DELIVERY":{"SHIPPED"},"SHIPPED":{"DELIVERED"},"DELIVERED":{"COMPLETED"}}
-    if actor.primary_role != "SUPERADMIN" and not actor.supplier_memberships.filter(supplier=supplier_order.supplier,status="ACTIVE").exists():raise ValidationError("Order access denied.")
+    supplier_order=SupplierOrder.objects.select_for_update().select_related("supplier").get(pk=supplier_order.pk)
+    from apps.accounts.permissions import can_manage_fulfillment
+    if not can_manage_fulfillment(actor, supplier_order.supplier):raise ValidationError("Supplier fulfillment access is required.")
     if next_status not in transitions.get(supplier_order.status,set()):raise ValidationError("Invalid order transition.")
-    supplier_order.status=next_status;supplier_order.save(update_fields=["status"]);log_action(actor=actor,action="SUPPLIER_ORDER_TRANSITION",target=supplier_order,after={"status":next_status})
+    delivery = None
+    if next_status == "SHIPPED":
+        delivery_data = delivery_data or {}
+        if not delivery_data.get("carrier_name") or not delivery_data.get("tracking_reference"):
+            raise ValidationError("A delivery method and tracking or delivery reference are required.")
+        delivery = Delivery.objects.select_for_update().get(supplier_order=supplier_order)
+        delivery.carrier_name=delivery_data["carrier_name"].strip()
+        delivery.tracking_reference=delivery_data["tracking_reference"].strip()
+        delivery.notes=delivery_data.get("notes", "").strip()
+        delivery.status="SHIPPED";delivery.shipped_at=timezone.now()
+        delivery.save(update_fields=["carrier_name","tracking_reference","notes","status","shipped_at"])
+    elif next_status == "DELIVERED":
+        delivery = Delivery.objects.select_for_update().get(supplier_order=supplier_order)
+        delivery.status="DELIVERED";delivery.delivered_at=timezone.now()
+        delivery.save(update_fields=["status","delivered_at"])
+    supplier_order.status=next_status;supplier_order.save(update_fields=["status"])
+    event_type={"PREPARING":"order.preparing","READY_FOR_DELIVERY":"order.ready","SHIPPED":"order.dispatched","DELIVERED":"order.delivered"}.get(next_status)
+    if event_type:
+        from apps.notifications.services import emit
+        emit(event_type,supplier_order,{"recipient_ids":[str(supplier_order.master_order.customer.user_id)],"order_number":supplier_order.master_order.order_number,"supplier_name":supplier_order.supplier_name_snapshot,"link":f"/shop/orders/{supplier_order.master_order_id}/"})
+    log_action(actor=actor,action="SUPPLIER_ORDER_TRANSITION",target=supplier_order,after={"status":next_status})
+    return supplier_order
