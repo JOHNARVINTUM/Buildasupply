@@ -1,0 +1,37 @@
+{% extends 'customers/layout.html' %}
+{% block title %}Notifications · BUILTASUPPLY{% endblock %}
+{% block customer_location %}Notifications{% endblock %}
+{% block customer_content %}
+<style>
+.customer-notifications .notification-entry{border:1px solid var(--line);background:#ffffffed;padding:24px;margin:0 0 16px}
+.customer-notifications .notification-entry.unread{border-left:3px solid var(--navy)}
+.customer-notifications .notification-entry .section-heading{align-items:start;margin-bottom:12px}
+.customer-notifications .notification-entry h2{margin:0;font-size:1.1rem}
+.customer-notifications .notification-entry p{margin:12px 0;font-size:.9rem}
+.customer-notifications .notification-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font:10px/1.6 ui-monospace,Consolas,monospace;color:var(--muted)}
+.customer-notifications .notification-entry .button{margin-top:4px}
+.customer-notifications .notification-empty-mark{display:block;width:80px;height:80px;color:#7296b1;margin:0 auto 20px}
+@media(max-width:600px){.customer-notifications .notification-entry{padding:18px}.customer-notifications .notification-entry .section-heading{gap:12px}}
+</style>
+<section class="customer-notifications" aria-labelledby="notifications-heading">
+  <div class="section-heading">
+    <div><span class="eyebrow">Your project / Notifications</span><h1 id="notifications-heading">Updates</h1><p class="muted">Order progress, payment updates, and the details that keep your build moving.</p></div>
+    {% if notifications %}<span class="badge">{{ notifications|length }} update{{ notifications|length|pluralize }} shown</span>{% endif %}
+  </div>
+  {% for notification in notifications %}
+  <article class="notification-entry{% if not notification.read_at %} unread{% endif %}" aria-labelledby="notification-{{ notification.pk }}">
+    <div class="section-heading">
+      <h2 id="notification-{{ notification.pk }}">{{ notification.title }}</h2>
+      <div class="notification-meta">{% if not notification.read_at %}<span class="badge">Unread</span>{% else %}<span>Read</span>{% endif %}<time datetime="{{ notification.created_at|date:'c' }}">{{ notification.created_at|date:'d M Y, H:i' }}</time></div>
+    </div>
+    <p>{{ notification.body|linebreaksbr }}</p>
+    {% if notification.link %}<a class="button secondary" href="{{ notification.link }}">View update <span aria-hidden="true">↗</span><span class="sr-only">: {{ notification.title }}</span></a>{% endif %}
+  </article>
+  {% empty %}
+  <div class="empty-state">
+    <svg class="notification-empty-mark" viewBox="0 0 80 80" fill="none" aria-hidden="true" focusable="false"><path d="M22 53h36l-5-7V32a13 13 0 0 0-26 0v14l-5 7Zm12 7a6 6 0 0 0 12 0M37 18v-4h6v4" stroke="currentColor" stroke-width="1.2"/><path d="M12 9h56M12 5v8m56-8v8M70 20v43m-4-43h8m-8 43h8M8 70h54" stroke="currentColor" stroke-width=".7" stroke-dasharray="2 3"/><path d="m9 24 6-6m-6 0 6 6m45 46 6-6m-6 0 6 6" stroke="currentColor" stroke-width=".8"/></svg>
+    <span class="eyebrow">Nothing on the board yet</span><h2>You're all caught up.</h2><p>Your notification center is clear. New updates about your orders and payments will appear here.</p><a class="button secondary" href="{% url 'shop-browse' %}">Browse supplies <span aria-hidden="true">↗</span></a>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,104 @@
+<style>
+/* Motion is confined to this decorative marketplace showcase. */
+.blueprint-showcase{min-width:0;width:100%;align-self:center;color:#b8d9ef;margin-bottom:24px;--scene-line:#8ebfdf}
+.blueprint-showcase .motion-stage{position:relative;isolation:isolate;background:radial-gradient(ellipse at 70% 35%,#235477,#0c2945 70%);border:1px solid #517f9f;overflow:hidden;aspect-ratio:1.22;perspective:800px}
+.blueprint-showcase .motion-stage::before{content:'';position:absolute;inset:0;background-image:linear-gradient(#acd6f70d 1px,transparent 1px),linear-gradient(90deg,#acd6f70d 1px,transparent 1px);background-size:24px 24px;pointer-events:none}
+.blueprint-showcase .scene-heading{position:absolute;inset:16px 18px auto;display:flex;justify-content:space-between;gap:12px;font:9px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.1em;text-transform:uppercase;z-index:3;color:#a4c7df}
+.blueprint-showcase .scene-heading span:first-child::before{content:'';display:inline-block;width:5px;height:5px;background:#9ce5f3;margin:0 8px 1px 0;box-shadow:0 0 10px #9ce5f3}
+.blueprint-showcase .vehicle-slides{position:absolute;inset:64px 8px 22px;z-index:2;display:grid;align-items:center}
+.blueprint-showcase .vehicle-slide{grid-area:1/1;opacity:0;visibility:hidden;transform:translateY(14px);transition:opacity .7s,transform .7s,visibility .7s;min-width:0}
+.blueprint-showcase .vehicle-slide.active{opacity:1;visibility:visible;transform:translateY(0)}
+.blueprint-showcase .vehicle-drawing{display:block;width:100%;height:auto;filter:drop-shadow(0 0 4px #a9d9ff22)}
+.blueprint-showcase .vehicle-slide .plan{padding:0 20px}
+.blueprint-showcase .vehicle-slide .plan svg{max-height:280px}
+.blueprint-showcase .vehicle-slide .plan-caption{display:none}
+.blueprint-showcase .vehicle-slide .plan{filter:brightness(1.9) saturate(.4)}
+.blueprint-showcase .scan-line{position:absolute;inset:0 auto 0 -20%;width:20%;background:linear-gradient(90deg,transparent,#a9d9ff0e,transparent);border-right:1px solid #a9d9ff22;transform:skewX(-12deg);animation:blueprint-scan 8s linear infinite paused;pointer-events:none;z-index:4}
+.blueprint-showcase .orbit{position:absolute;width:200px;height:200px;top:-62px;right:-50px;border:1px solid #83bad84d;border-radius:50%;transform:rotateX(58deg) rotateZ(0deg);animation:blueprint-orbit 22s linear infinite paused;pointer-events:none}
+.blueprint-showcase .orbit::before{content:'';position:absolute;top:26px;left:23px;width:6px;height:6px;background:#a9e6f2;box-shadow:0 0 16px #a9e6f2;border-radius:50%}
+.blueprint-showcase .orbit.second{width:150px;height:150px;top:-36px;right:-24px;transform:rotateX(35deg) rotateY(48deg);animation-direction:reverse;animation-duration:30s;border-style:dashed}
+.blueprint-showcase .model-position{position:absolute;top:41px;right:52px;perspective:500px;opacity:.7;z-index:1}
+.blueprint-showcase .wire-model{width:40px;height:40px;position:relative;transform-style:preserve-3d;transform:rotateX(-22deg) rotateY(35deg);animation:blueprint-model 18s linear infinite paused}
+.blueprint-showcase .wire-face{position:absolute;inset:0;border:1px solid #9cd8f1;background:linear-gradient(90deg,transparent 48%,#9cd8f13b 49%,#9cd8f13b 51%,transparent 52%),linear-gradient(transparent 48%,#9cd8f13b 49%,#9cd8f13b 51%,transparent 52%);backface-visibility:visible}
+.blueprint-showcase .wire-face:nth-child(1){transform:translateZ(20px)}.blueprint-showcase .wire-face:nth-child(2){transform:rotateY(90deg) translateZ(20px)}.blueprint-showcase .wire-face:nth-child(3){transform:rotateY(180deg) translateZ(20px)}.blueprint-showcase .wire-face:nth-child(4){transform:rotateY(-90deg) translateZ(20px)}.blueprint-showcase .wire-face:nth-child(5){transform:rotateX(90deg) translateZ(20px)}.blueprint-showcase .wire-face:nth-child(6){transform:rotateX(-90deg) translateZ(20px)}
+.blueprint-showcase .scene-axis{position:absolute;bottom:15px;right:18px;font:9px ui-monospace,Consolas,monospace;letter-spacing:.15em;opacity:.6}
+.blueprint-showcase .drawing-ribbon{overflow:hidden;border:1px solid #8fadc3;border-top:0;color:#4e718a;background:#e9f2f8}
+.blueprint-showcase .ribbon-track{width:max-content;display:flex;animation:blueprint-ticker 32s linear infinite paused}
+.blueprint-showcase .ribbon-set{display:flex;gap:28px;align-items:center;padding:10px 14px;font:9px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.1em;white-space:nowrap}
+.blueprint-showcase .ribbon-set span::before{content:'+';margin-right:12px;color:#6a91b1}
+.blueprint-showcase .motion-controls{display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;color:#476a84}
+.blueprint-showcase.is-ready .motion-controls{display:flex}
+.blueprint-showcase .motion-caption{font:9px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.04em;text-transform:uppercase}
+.blueprint-showcase .scene-buttons{display:flex;gap:6px;align-items:center}
+.customer-workspace .blueprint-showcase .scene-buttons button{margin:0;padding:5px 10px;min-height:44px;min-width:44px;font:11px/1.5 ui-monospace,Consolas,monospace;background:transparent;color:#234e6e;border:1px solid #a4bdce}
+.customer-workspace .blueprint-showcase .scene-buttons button:hover{background:#dcebf5}
+.customer-workspace .blueprint-showcase .scene-buttons button:disabled{cursor:default;opacity:.6}
+.blueprint-showcase.is-playing :is(.scan-line,.orbit,.wire-model,.ribbon-track){animation-play-state:running}
+@keyframes blueprint-scan{to{left:125%}}
+@keyframes blueprint-orbit{to{transform:rotateX(58deg) rotateZ(360deg)}}
+@keyframes blueprint-model{to{transform:rotateX(338deg) rotateY(395deg)}}
+@keyframes blueprint-ticker{to{transform:translateX(-50%)}}
+@media(max-width:700px){.blueprint-showcase{max-width:520px;justify-self:center;margin:4px 0 24px}.blueprint-showcase .motion-stage{aspect-ratio:1.32}.blueprint-showcase .motion-caption{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.blueprint-showcase *{animation:none!important;transition:none!important}}
+</style>
+<div class="blueprint-showcase" data-blueprint-showcase>
+  <div class="motion-stage" aria-hidden="true">
+    <div class="scene-heading"><span>Blueprint studies</span><span>Concept series / BS</span></div>
+    <div class="orbit"></div><div class="orbit second"></div>
+    <div class="model-position"><div class="wire-model"><i class="wire-face"></i><i class="wire-face"></i><i class="wire-face"></i><i class="wire-face"></i><i class="wire-face"></i><i class="wire-face"></i></div></div>
+    <div class="vehicle-slides" id="blueprint-slides">
+      <div class="vehicle-slide active" data-caption="01 / Utility truck" aria-hidden="false">{% include 'customers/includes/vehicle_blueprint.html' with vehicle='truck' %}</div>
+      <div class="vehicle-slide" data-caption="02 / Earthmoving equipment" aria-hidden="true">{% include 'customers/includes/vehicle_blueprint.html' with vehicle='excavator' %}</div>
+      <div class="vehicle-slide" data-caption="03 / Architectural study" aria-hidden="true">{% include 'customers/includes/site_plan.html' %}</div>
+    </div>
+    <div class="scan-line"></div><span class="scene-axis">X — Y — Z</span>
+  </div>
+  <div class="drawing-ribbon" aria-hidden="true"><div class="ribbon-track">{% for repeat in '12' %}<div class="ribbon-set"><span>Plan</span><span>Engineer</span><span>Source</span><span>Build</span><span>Repeat</span></div>{% endfor %}</div></div>
+  <div class="motion-controls"><span class="motion-caption" data-motion-caption>01 / Utility truck</span><div class="scene-buttons"><button type="button" data-scene-previous aria-label="Previous blueprint illustration" aria-controls="blueprint-slides">←</button><button type="button" data-scene-next aria-label="Next blueprint illustration" aria-controls="blueprint-slides">→</button><button type="button" data-motion-toggle aria-pressed="false">Pause motion</button></div></div>
+  <span class="motion-caption" style="display:block;margin-top:8px;color:#6b8496">Illustrative concepts / not products for sale</span>
+</div>
+<script>
+(() => {
+  const root = document.querySelector('[data-blueprint-showcase]');
+  if (!root) return;
+  const slides = [...root.querySelectorAll('.vehicle-slide')];
+  const caption = root.querySelector('[data-motion-caption]');
+  const toggle = root.querySelector('[data-motion-toggle]');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let current = 0, userPaused = document.documentElement?.dataset.customerMotionPaused === 'true', inView = true, timer = null;
+  const show = (index) => {
+    current = (index + slides.length) % slides.length;
+    slides.forEach((slide, i) => {
+      slide.classList.toggle('active', i === current);
+      slide.setAttribute('aria-hidden', String(i !== current));
+    });
+    caption.textContent = slides[current].dataset.caption;
+  };
+  const sync = () => {
+    const playing = !userPaused && !reduced.matches && !document.hidden && inView;
+    root.classList.toggle('is-playing', playing);
+    toggle.textContent = reduced.matches ? 'Reduced motion' : userPaused ? 'Play motion' : 'Pause motion';
+    toggle.disabled = reduced.matches;
+    toggle.setAttribute('aria-pressed', String(userPaused || reduced.matches));
+    clearInterval(timer);
+    timer = playing ? setInterval(() => show(current + 1), 7000) : null;
+  };
+  root.querySelector('[data-scene-previous]').addEventListener('click', () => { show(current - 1); sync(); });
+  root.querySelector('[data-scene-next]').addEventListener('click', () => { show(current + 1); sync(); });
+  toggle.addEventListener('click', () => {
+    if (document.documentElement?.dataset.customerMotionPaused !== undefined) {
+      document.dispatchEvent(new CustomEvent('customer-motion-request', { detail: { paused: !userPaused } }));
+    } else { userPaused = !userPaused; sync(); }
+  });
+  document.addEventListener('customer-motion-change', (event) => { userPaused = event.detail.paused; sync(); });
+  document.addEventListener('visibilitychange', sync);
+  reduced.addEventListener('change', sync);
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => { inView = entry.isIntersecting; sync(); }, { threshold: 0.1 }).observe(root);
+  }
+  window.addEventListener('pagehide', () => clearInterval(timer));
+  window.addEventListener('pageshow', sync);
+  root.classList.add('is-ready');
+  sync();
+})();
+</script>

@@ -1,0 +1,121 @@
+<style>
+.customer-workspace :is(button,.button){position:relative;overflow:hidden;transition:background .16s,color .16s,border-color .16s,box-shadow .16s,transform .16s}
+.customer-workspace :is(button,.button):active:not(:disabled):not([aria-disabled=true]){transform:translateY(1px) scale(.98)}
+.customer-workspace :is(button,.button)[aria-busy=true]{cursor:wait;pointer-events:none;opacity:.8}
+.customer-workspace .customer-click-pulse{position:absolute;border:1px solid currentColor;border-radius:50%;pointer-events:none;background:currentColor;opacity:.16;transform:scale(0);animation:customer-button-pulse .55s ease-out forwards}
+.customer-workspace .customer-content.is-entering{animation:customer-page-enter .38s ease-out both}
+.customer-workspace .customer-submit-indicator{display:inline-block;width:12px;height:12px;border:1px solid currentColor;border-right-color:transparent;border-radius:50%;margin-left:10px;vertical-align:-1px;animation:customer-submit-spin .8s linear infinite}
+.customer-loading-bar{position:fixed;z-index:60;top:0;left:0;right:0;height:3px;background:#d9e7f1;overflow:hidden;pointer-events:none}
+.customer-loading-bar::after{content:'';position:absolute;inset:0;background:#194f78;transform:translateX(-100%);animation:customer-loading-progress 1.1s ease-in-out infinite}
+.customer-loading-screen{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:24px;background:#f0f6fbee;backdrop-filter:blur(3px);pointer-events:none}
+.customer-loading-screen[hidden],.customer-loading-bar[hidden]{display:none!important}
+.customer-loading-card{width:min(100%,320px);padding:30px;text-align:center;border:1px solid #a1b9cc;background:#fbfdff;box-shadow:7px 7px 0 #194f780c}
+.customer-loading-symbol{display:block;position:relative;width:42px;height:42px;border:1px solid #83a6bf;margin:0 auto 22px;transform:rotate(45deg);animation:customer-loading-draft 2s ease-in-out infinite}
+.customer-loading-symbol::before,.customer-loading-symbol::after{content:'';position:absolute;background:#194f78;left:50%;top:50%;transform:translate(-50%,-50%)}
+.customer-loading-symbol::before{width:62px;height:1px}.customer-loading-symbol::after{height:62px;width:1px}
+.customer-loading-card strong{display:block;color:#163e62;font-size:1rem;margin-bottom:8px}
+.customer-loading-card small{font:10px/1.7 ui-monospace,Consolas,monospace;color:#536c7f}
+.customer-workspace .customer-loading-message:not(.sr-only){position:fixed;z-index:61;top:12px;left:50%;transform:translateX(-50%);width:min(90%,520px);padding:14px 18px;margin:0;border:1px solid #a1b9cc;background:#fbfdff;color:#163e62;font-size:.85rem;box-shadow:3px 3px 0 #194f7814}
+html[data-customer-motion-paused=true] :is(.customer-click-pulse,.customer-submit-indicator,.customer-loading-symbol),html[data-customer-motion-paused=true] .customer-loading-bar::after{animation:none!important}
+html[data-customer-motion-paused=true] .customer-workspace :is(button,.button){transition:none}
+@keyframes customer-page-enter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@keyframes customer-button-pulse{to{opacity:0;transform:scale(1)}}
+@keyframes customer-submit-spin{to{transform:rotate(360deg)}}
+@keyframes customer-loading-progress{to{transform:translateX(100%)}}
+@keyframes customer-loading-draft{50%{transform:rotate(225deg);border-color:#194f78}to{transform:rotate(405deg)}}
+@media(prefers-reduced-motion:reduce){.customer-workspace :is(button,.button){transition:none!important;transform:none!important}.customer-workspace .customer-content.is-entering{animation:none!important}.customer-workspace :is(.customer-click-pulse,.customer-submit-indicator),.customer-loading-symbol,.customer-loading-bar::after{animation:none!important}}
+</style>
+<div class="customer-loading-bar" data-customer-loading-bar hidden aria-hidden="true"></div>
+<div class="customer-loading-screen" data-customer-loading-screen hidden aria-hidden="true"><div class="customer-loading-card"><span class="customer-loading-symbol"></span><strong data-customer-loading-label>Loading page…</strong><small>BUILTASUPPLY / Getting things ready</small></div></div>
+<p class="customer-loading-message sr-only" data-customer-loading-message role="status" aria-live="polite" aria-atomic="true"></p>
+<script>
+(() => {
+  const workspace = document.querySelector('.customer-workspace');
+  const content = workspace?.querySelector('.customer-content');
+  if (!workspace || !content) return;
+  const bar = workspace.querySelector('[data-customer-loading-bar]');
+  const screen = workspace.querySelector('[data-customer-loading-screen]');
+  const label = workspace.querySelector('[data-customer-loading-label]');
+  const message = workspace.querySelector('[data-customer-loading-message]');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const busyForms = new Set();
+  let screenTimer, recoveryTimer;
+  const motionAllowed = () => !reduced.matches && document.documentElement.dataset.customerMotionPaused !== 'true';
+  const clearLoading = () => {
+    clearTimeout(screenTimer); clearTimeout(recoveryTimer);
+    bar.hidden = true; screen.hidden = true;
+    message.textContent = ''; message.classList.add('sr-only');
+  };
+  const reset = () => {
+    clearLoading();
+    for (const form of busyForms) {
+      delete form.dataset.customerSubmitting;
+      form.removeAttribute('aria-busy');
+      form.querySelectorAll('[data-customer-submit-busy]').forEach((button) => {
+        button.removeAttribute('aria-busy'); button.removeAttribute('aria-disabled');
+        delete button.dataset.customerSubmitBusy;
+        button.querySelector('.customer-submit-indicator')?.remove();
+      });
+    }
+    busyForms.clear();
+    content.classList.remove('is-entering');
+  };
+  const startLoading = (text) => {
+    clearLoading();
+    label.textContent = text; message.textContent = text;
+    bar.hidden = false;
+    screenTimer = setTimeout(() => { screen.hidden = false; }, 350);
+    recoveryTimer = setTimeout(() => {
+      screen.hidden = true; bar.hidden = true;
+      message.textContent = 'This is taking longer than expected. Please wait for a response or use your browser’s Back button to return.';
+      message.classList.remove('sr-only');
+    }, 12000);
+  };
+  const sameWindow = (element) => !element.target || element.target.toLowerCase() === '_self';
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const button = target?.closest('button,a.button');
+    if (button && workspace.contains(button) && !button.disabled && button.getAttribute('aria-disabled') !== 'true' && motionAllowed()) {
+      const bounds = button.getBoundingClientRect();
+      const size = Math.max(bounds.width, bounds.height) * 2;
+      const pulse = document.createElement('span');
+      pulse.className = 'customer-click-pulse'; pulse.setAttribute('aria-hidden', 'true');
+      pulse.style.width = pulse.style.height = `${size}px`;
+      pulse.style.left = `${(event.detail ? event.clientX - bounds.left : bounds.width / 2) - size / 2}px`;
+      pulse.style.top = `${(event.detail ? event.clientY - bounds.top : bounds.height / 2) - size / 2}px`;
+      button.appendChild(pulse);
+      setTimeout(() => pulse.remove(), 600);
+    }
+    const link = target?.closest('a[href]');
+    if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !sameWindow(link) || link.hasAttribute('download') || link.hasAttribute('data-no-page-transition') || link.getAttribute('aria-disabled') === 'true') return;
+    const destination = new URL(link.href, location.href);
+    if (destination.origin !== location.origin || !['http:', 'https:'].includes(destination.protocol)) return;
+    if (destination.pathname === location.pathname && destination.search === location.search) return;
+    startLoading('Loading page…');
+  });
+  document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !workspace.contains(form) || event.defaultPrevented || !sameWindow(form) || form.method === 'dialog' || form.hasAttribute('data-no-page-transition')) return;
+    if (new URL(form.action || location.href, location.href).origin !== location.origin) return;
+    if (form.dataset.customerSubmitting === 'true') { event.preventDefault(); return; }
+    // Keep successful form controls enabled so Django receives their original names and values.
+    form.dataset.customerSubmitting = 'true'; form.setAttribute('aria-busy', 'true'); busyForms.add(form);
+    form.querySelectorAll('button[type=submit],button:not([type]),input[type=submit]').forEach((button) => {
+      if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+      button.dataset.customerSubmitBusy = 'true'; button.setAttribute('aria-busy', 'true'); button.setAttribute('aria-disabled', 'true');
+      if (button.tagName === 'BUTTON') {
+        const indicator = document.createElement('span');
+        indicator.className = 'customer-submit-indicator'; indicator.setAttribute('aria-hidden', 'true'); button.appendChild(indicator);
+      }
+    });
+    startLoading('Submitting your request…');
+  });
+  document.addEventListener('customer-motion-change', (event) => { if (event.detail.paused) content.classList.remove('is-entering'); });
+  window.addEventListener('pageshow', (event) => { if (event.persisted) reset(); });
+  window.addEventListener('pagehide', clearLoading);
+  if (motionAllowed()) {
+    content.classList.add('is-entering');
+    setTimeout(() => content.classList.remove('is-entering'), 450);
+  }
+})();
+</script>
