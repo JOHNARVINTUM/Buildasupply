@@ -1,10 +1,11 @@
-{% extends 'base.html' %}
-{% block content %}
-<section class="panel" style="max-width:100%">
-  <div class="status">SUPPLIER OPERATIONS · {{ supplier.get_approval_status_display }}</div>
-  <h1>{{ supplier.display_name }}</h1>
-  <p class="muted">{{ pending }} awaiting moderation · {{ low_stock }} low-stock products</p>
-  <p><a class="button" href="{% url 'supplier-products' %}">Review catalog</a> <a class="button secondary" href="{% url 'supplier-cod-orders' %}">COD orders</a></p>
-  <table><thead><tr><th>Product</th><th>Status</th><th>Stock</th></tr></thead><tbody>{% for p in products %}<tr><td>{{ p.name }}</td><td>{{ p.get_status_display }}</td><td>{{ p.inventory.available_quantity }}</td></tr>{% empty %}<tr><td colspan="3">No products yet.</td></tr>{% endfor %}</tbody></table>
+{% extends 'suppliers/layout.html' %}
+{% block title %}Supplier overview · BUILTASUPPLY{% endblock %}
+{% block supplier_content %}
+<section class="hero">
+<div><span class="eyebrow">Supplier operations / {{ supplier.get_approval_status_display }}</span><h1>{{ supplier.display_name }}</h1><p>Your catalog, stock, and fulfillment — on one drawing board.</p><div class="actions"><a class="button" href="{% url 'supplier-products' %}">Review catalog</a><a class="button secondary" href="{% url 'supplier-cod-orders' %}">COD orders</a></div></div>
+{% include 'suppliers/includes/blueprint_showcase.html' %}
 </section>
+<div class="metrics"><article class="card"><span class="eyebrow">Awaiting moderation</span><strong>{{ pending }}</strong><span class="muted">Products pending review</span></article><article class="card"><span class="eyebrow">Inventory attention</span><strong>{{ low_stock }}</strong><span class="muted">Low-stock products</span></article></div>
+<section class="panel"><div class="section-heading"><div><span class="eyebrow">Catalog / preview</span><h2>Your products</h2></div><a href="{% url 'supplier-product-create' %}" class="button secondary">Add supply</a></div>
+<div class="table-scroll"><table><thead><tr><th>Product</th><th>Status</th><th>Stock</th></tr></thead><tbody>{% for p in products %}<tr><td>{{ p.name }}</td><td><span class="badge">{{ p.get_status_display }}</span></td><td>{{ p.inventory.available_quantity }} {{ p.unit_of_measure }}</td></tr>{% empty %}<tr><td colspan="3">No products yet. Add a supply to start your catalog.</td></tr>{% endfor %}</tbody></table></div></section>
 {% endblock %}

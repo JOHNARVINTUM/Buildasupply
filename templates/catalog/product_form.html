@@ -1,5 +1,5 @@
-{% extends 'base.html' %}
+{% extends 'suppliers/layout.html' %}
 {% block title %}Add supply | BUILTASUPPLY{% endblock %}
-{% block content %}
+{% block supplier_content %}
 <section class="panel"><div class="status">SUPPLIER CATALOG · NEW DRAFT</div><h1>Add a supply</h1><p class="muted">New supplies are saved as drafts. They are not visible to customers until submitted and approved.</p><form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}<button type="submit">Save supply draft</button> <a class="button secondary" href="{% url 'supplier-products' %}">Cancel</a></form></section>
 {% endblock %}

@@ -1,0 +1,69 @@
+<style>
+.supplier-blueprint-background{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;color:#2c6690;background:linear-gradient(125deg,#e4eff8,#f4f8fc 55%,#e2edf6)}
+.supplier-blueprint-background .ambient-grid{position:absolute;inset:-160px;background-image:linear-gradient(#4079a02b 1px,transparent 1px),linear-gradient(90deg,#4079a02b 1px,transparent 1px),linear-gradient(#4079a021 1px,transparent 1px),linear-gradient(90deg,#4079a021 1px,transparent 1px);background-size:32px 32px,32px 32px,128px 128px,128px 128px;animation:supplier-grid-drift 36s linear infinite paused}
+.supplier-blueprint-background .ambient-drawing{position:absolute;transform-origin:center;animation:supplier-blueprint-float 28s ease-in-out infinite alternate paused;will-change:transform}
+.supplier-blueprint-background .ambient-drawing svg{display:block;width:100%;height:auto}
+.supplier-blueprint-background .ambient-truck{width:650px;left:-190px;top:40%;opacity:.3;--drift-x:90px;--drift-y:-85px;--draft-angle:-14deg;transform:rotate(-14deg)}
+.supplier-blueprint-background .ambient-excavator{width:680px;right:-180px;top:-45px;opacity:.28;--drift-x:-90px;--drift-y:85px;--draft-angle:12deg;transform:rotate(12deg);animation-duration:34s}
+.supplier-blueprint-background .ambient-floorplan{width:560px;left:38%;top:43%;opacity:.2;--drift-x:-55px;--drift-y:-80px;--draft-angle:-22deg;transform:rotate(-22deg);animation-duration:42s}
+.supplier-blueprint-background .ambient-tool{width:200px;right:5%;bottom:-45px;opacity:.3;--drift-x:-45px;--drift-y:-70px;--draft-angle:20deg;transform:rotate(20deg);animation-duration:26s}
+.supplier-blueprint-background .ambient-tool .supply-mark{width:100%;height:auto;margin:0}
+.supplier-blueprint-background .ambient-compass{position:absolute;width:380px;height:380px;left:-120px;top:-110px;border:1px dashed #3c78a04d;border-radius:50%;animation:supplier-compass-turn 65s linear infinite paused}
+.supplier-blueprint-background .ambient-compass::before{content:'';position:absolute;inset:28px;border:1px solid #3c78a04d;border-radius:50%;background:linear-gradient(transparent 49.8%,#3c78a04d 50%,transparent 50.2%),linear-gradient(90deg,transparent 49.8%,#3c78a04d 50%,transparent 50.2%)}
+.supplier-blueprint-background .ambient-compass::after{content:'';position:absolute;top:46px;left:46px;width:8px;height:8px;background:#6598bc;box-shadow:0 0 16px #6598bc80}
+.supplier-blueprint-background .ambient-sweep{position:absolute;inset:-30%;background:linear-gradient(100deg,transparent 43%,#398fc509 48%,#a0d9fa45 50%,#398fc509 52%,transparent 57%);transform:translateX(-70%);animation:supplier-blueprint-sweep 18s ease-in-out infinite paused}
+.supplier-blueprint-background .ambient-horizon{position:absolute;left:-25%;right:-25%;bottom:-35%;height:75%;background-image:linear-gradient(#3d82af38 1px,transparent 1px),linear-gradient(90deg,#3d82af38 1px,transparent 1px);background-size:64px 64px;transform:perspective(700px) rotateX(58deg) rotateZ(-8deg);opacity:.6;mask-image:linear-gradient(transparent,#000 60%);animation:supplier-horizon-shift 24s ease-in-out infinite alternate paused}
+.supplier-blueprint-background.is-playing *{animation-play-state:running}
+.supplier-workspace .ambient-motion-control{display:none;position:fixed;right:18px;bottom:18px;z-index:20;margin:0;min-height:44px;padding:10px 14px;background:#f7fbfdf5;color:var(--navy);border:1px solid #8daec6;box-shadow:3px 3px 0 #16436617;font:10px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.04em;backdrop-filter:blur(8px)}
+.supplier-workspace .ambient-motion-control.is-ready{display:block}
+.supplier-workspace .ambient-motion-control:hover{background:#163e62;color:#fff}
+.supplier-workspace .ambient-motion-control:disabled{cursor:default}
+.supplier-workspace:has(.ambient-motion-control) .footnote{padding-bottom:52px}
+@keyframes supplier-grid-drift{to{transform:translate3d(128px,128px,0)}}
+@keyframes supplier-blueprint-float{to{transform:translate3d(var(--drift-x),var(--drift-y),0) rotate(calc(var(--draft-angle) + 7deg))}}
+@keyframes supplier-compass-turn{to{transform:rotate(360deg)}}
+@keyframes supplier-blueprint-sweep{50%,100%{transform:translateX(70%)}}
+@keyframes supplier-horizon-shift{to{transform:perspective(700px) rotateX(58deg) rotateZ(-3deg) translate3d(40px,-30px,0)}}
+@media(max-width:700px){.supplier-blueprint-background .ambient-truck{width:440px;left:-230px;opacity:.24}.supplier-blueprint-background .ambient-excavator{width:480px;right:-230px;top:80px;opacity:.24}.supplier-blueprint-background .ambient-floorplan{width:400px;left:15%;opacity:.15}.supplier-blueprint-background .ambient-tool{right:-45px;width:150px}.supplier-workspace .ambient-motion-control{right:12px;bottom:12px}}
+@media(prefers-reduced-motion:reduce){.supplier-blueprint-background *{animation:none!important}.supplier-blueprint-background .ambient-sweep{display:none}}
+</style>
+<div class="supplier-blueprint-background" data-supplier-background aria-hidden="true">
+  <div class="ambient-grid"></div><div class="ambient-horizon"></div><div class="ambient-compass"></div>
+  <div class="ambient-drawing ambient-truck">{% include 'suppliers/includes/vehicle_blueprint.html' with vehicle='truck' drawing_prefix='ambient' %}</div>
+  <div class="ambient-drawing ambient-excavator">{% include 'suppliers/includes/vehicle_blueprint.html' with vehicle='excavator' drawing_prefix='ambient' %}</div>
+  <div class="ambient-drawing ambient-floorplan"><svg viewBox="0 0 500 420" fill="none" focusable="false"><g stroke="currentColor" stroke-width="1.3"><path d="M60 70h350v270H60zM68 78h334v254H68zM68 198h140m30 0h164M208 78v120m0 30v104M312 78v120M68 265h140M85 95h100v78H85zM330 95h54v80h-54zM240 222h140v80H240zM85 282h100v34H85z"/><path d="M208 198v30a30 30 0 0 0 30-30m-30 67h-28a28 28 0 0 0 28 28M90 108l90 50m-90 0 90-50" stroke-width=".7"/><path d="M40 50h390M40 44v12m390-12v12M430 70v270m-6-270h12m-12 270h12M60 360h350M60 354v12m350-12v12" stroke-dasharray="3 4"/><circle cx="372" cy="380" r="14"/><path d="M372 360v40m-20-20h40M32 70v270M60 32h350" stroke-dasharray="4 6"/></g></svg></div>
+  <div class="ambient-drawing ambient-tool">{% include 'suppliers/includes/supply_mark.html' %}</div>
+  <div class="ambient-sweep"></div>
+</div>
+<button class="ambient-motion-control" type="button" data-ambient-motion-toggle>Pause effects</button>
+<script>
+(() => {
+  const background = document.querySelector('[data-supplier-background]');
+  const control = document.querySelector('[data-ambient-motion-toggle]');
+  if (!background || !control) return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let userPaused = false;
+  try { userPaused = sessionStorage.getItem('builtasupply-motion-paused') === 'true'; } catch (_) {}
+  const sync = () => {
+    const paused = userPaused || reduced.matches;
+    background.classList.toggle('is-playing', !paused && !document.hidden);
+    document.documentElement.dataset.supplierMotionPaused = String(paused);
+    control.textContent = reduced.matches ? 'Reduced motion enabled' : userPaused ? 'Play effects' : 'Pause effects';
+    control.disabled = reduced.matches;
+    control.setAttribute('aria-pressed', String(paused));
+    document.dispatchEvent(new CustomEvent('supplier-motion-change', { detail: { paused } }));
+  };
+  const pause = (value) => {
+    userPaused = value;
+    try { sessionStorage.setItem('builtasupply-motion-paused', String(value)); } catch (_) {}
+    sync();
+  };
+  control.addEventListener('click', () => pause(!userPaused));
+  document.addEventListener('supplier-motion-request', (event) => pause(Boolean(event.detail.paused)));
+  document.addEventListener('visibilitychange', sync);
+  reduced.addEventListener('change', sync);
+  window.addEventListener('pageshow', sync);
+  control.classList.add('is-ready');
+  sync();
+})();
+</script>

@@ -1,5 +1,5 @@
-{% extends 'base.html' %}
+{% extends 'suppliers/layout.html' %}
 {% block title %}Edit supply | BUILTASUPPLY{% endblock %}
-{% block content %}
+{% block supplier_content %}
 <section class="panel"><div class="status">SUPPLIER CATALOG · EDIT</div><h1>Edit {{ product.name }}</h1><p class="muted">If this supply is already approved, changing its details or price returns it to draft for a new review.</p><form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}<button type="submit">Save changes</button> <a class="button secondary" href="{% url 'supplier-products' %}">Cancel</a></form></section>
 {% endblock %}
