@@ -3,7 +3,7 @@
 {% block title %}Checkout · BUILTASUPPLY{% endblock %}
 {% block customer_location %}Checkout{% endblock %}
 {% block customer_content %}
-<div class="section-heading"><div><span class="eyebrow">Cart → Checkout → Payment</span><h1>Review your order</h1><p class="muted">Confirm your delivery address and review your supplies.</p></div><a href="{% url 'shop-cart' %}">← Back to cart</a></div>
+<div class="section-heading"><div><div class="step-label"><span>01 / Cart</span><span class="current">02 / Checkout</span><span>03 / Payment</span></div><h1>Review your order</h1><p class="muted">Confirm your delivery address and review your supplies.</p></div><a href="{% url 'shop-cart' %}">← Back to cart</a></div>
 {% if not cart.items.exists %}<div class="empty-state"><h2>Your cart is empty</h2><p>Add supplies before checking out.</p><a class="button" href="{% url 'shop-browse' %}">Browse supplies</a></div>
 {% elif not validation.valid %}<div class="empty-state"><h2>Your cart has changed</h2><p>Review the item issues in your cart before placing an order.</p><a class="button" href="{% url 'shop-cart' %}">Back to cart</a></div>
 {% else %}
