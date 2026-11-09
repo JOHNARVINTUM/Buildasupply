@@ -1,7 +1,7 @@
-{% extends 'base.html' %}
+{% extends 'customers/layout.html' %}
 {% load currency %}
 {% block title %}Order confirmation · BUILTASUPPLY{% endblock %}
-{% block content %}
+{% block customer_location %}Order confirmation{% endblock %}{% block customer_content %}
 <section class="panel" style="max-width:820px">
   <div class="status">{% if order.is_cod %}ORDER CONFIRMED · CASH ON DELIVERY{% else %}ORDER CREATED · PAYMENT SELECTION{% endif %}</div>
   <h1>Order {{ order.order_number }}</h1>

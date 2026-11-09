@@ -1,1 +1,19 @@
-{% extends 'base.html' %}{% block content %}<section class="panel" style="max-width:100%"><div class="status">BUILTASUPPLY MARKETPLACE</div><h1>Browse supplies</h1><p class="muted">Approved suppliers. Current PHP pricing. Stock checked before checkout.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">{% for p in products %}<article style="border:1px solid var(--line);padding:18px"><strong style="font-size:.75rem;color:var(--green)">{% if p.inventory.available_quantity <= p.inventory.low_stock_threshold %}LOW STOCK{% else %}IN STOCK{% endif %}</strong><h2>{{ p.name }}</h2><p class="muted">{{ p.supplier.display_name }} · {{ p.unit_of_measure }}</p><p><strong>₱{{ p.current_amount|floatformat:-2 }}</strong> / {{ p.unit_of_measure }}</p><a class="button" href="/shop/products/{{ p.id }}/">View supply</a></article>{% empty %}<p>No supplies are currently available. Try again soon.</p>{% endfor %}</div></section>{% endblock %}
+{% extends 'customers/layout.html' %}
+{% load currency %}
+{% block title %}Browse supplies · BUILTASUPPLY{% endblock %}
+{% block customer_location %}Browse supplies{% endblock %}
+{% block customer_content %}
+<section class="hero">
+  <div><span class="eyebrow">The BUILTASUPPLY marketplace</span><h1>Every great build<br>starts here.</h1><p>Find the supplies your project needs, from approved suppliers. Compare current prices and order with confidence.</p></div>
+  <div class="hero-note"><div><strong>Approved suppliers</strong><p>Shop products reviewed for the marketplace.</p></div><div><strong>Stock checked at checkout</strong><p>Review availability before placing your order.</p></div></div>
+</section>
+<div class="section-heading"><div><h2>Browse supplies</h2><p class="muted">Current prices. Available stock. Ready for your next project.</p></div><span class="badge">{{ products|length }} product{{ products|length|pluralize }} shown</span></div>
+<div class="product-grid">
+{% for p in products %}
+<article class="product-card">
+  <div class="product-art">{% with image=p.images.all|first %}{% if image and image.is_active %}<img src="{{ image.file.url }}" alt="{{ image.alt_text|default:p.name }}" loading="lazy">{% else %}<span>Product image unavailable</span>{% endif %}{% endwith %}</div>
+  <div class="product-copy"><span class="badge{% if p.inventory.available_quantity <= p.inventory.low_stock_threshold %} warning{% endif %}">{% if p.inventory.available_quantity <= p.inventory.low_stock_threshold %}Low stock{% else %}In stock{% endif %}</span><h2>{{ p.name }}</h2><p class="muted">{{ p.supplier.display_name }}{% if p.category %} · {{ p.category.name }}{% endif %}</p><p><span class="price">{{ p.current_amount|php }}</span> / {{ p.unit_of_measure }}</p><p class="muted">Minimum order: {{ p.minimum_order_quantity }} {{ p.unit_of_measure }}</p><a class="button secondary" href="{% url 'shop-product-detail' p.pk %}">View supply<span aria-hidden="true"> →</span><span class="sr-only">: {{ p.name }}</span></a></div>
+</article>
+{% empty %}<div class="empty-state"><span class="eyebrow">Check back soon</span><h2>No supplies are currently available</h2><p>Available products from approved suppliers will appear here. Try again soon.</p></div>{% endfor %}
+</div>
+{% endblock %}

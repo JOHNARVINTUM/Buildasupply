@@ -1,7 +1,7 @@
-{% extends 'base.html' %}
+{% extends 'customers/layout.html' %}
 {% load currency %}
 {% block title %}Order {{ order.order_number }} · BUILTASUPPLY{% endblock %}
-{% block content %}
+{% block customer_location %}Order details{% endblock %}{% block customer_content %}
 <section class="panel" style="max-width:900px"><div class="status">ORDER DETAILS · {{ order.status }}</div><h1>{{ order.order_number }}</h1>
 <p><strong>Payment method:</strong> {% if order.is_cod %}Cash on Delivery{% else %}Online payment{% endif %}<br><strong>Payment status:</strong> {{ order.payment_status }}<br><strong>Order total:</strong> {{ order.total_minor|php }}</p>
 {% if order.is_cod %}<p class="notice">Cash on delivery is collected separately for each supplier delivery. Selecting COD did not mark this order as paid.</p>{% endif %}
