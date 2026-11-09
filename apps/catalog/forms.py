@@ -6,7 +6,7 @@ from .models import Category
 class ProductCreateForm(forms.Form):
     name=forms.CharField(max_length=255)
     sku=forms.CharField(label="SKU", max_length=80)
-    category=forms.ModelChoiceField(queryset=Category.objects.filter(is_active=True).order_by("display_order", "name"), required=False)
+    category=forms.ModelChoiceField(queryset=Category.objects.filter(is_active=True).order_by("display_order", "name"), required=False, empty_label="Select a category")
     description=forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
     unit_of_measure=forms.CharField(max_length=32, initial="piece")
     minimum_order_quantity=forms.IntegerField(min_value=1, initial=1)
