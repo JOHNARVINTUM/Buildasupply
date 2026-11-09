@@ -1,0 +1,27 @@
+<svg viewBox="0 0 520 320" fill="none" focusable="false" aria-hidden="true" class="vehicle-drawing">
+<defs><pattern id="vehicle-grid-{{ drawing_prefix|default:'scene' }}-{{ vehicle }}" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" stroke="currentColor" stroke-opacity=".12" stroke-width=".6"/></pattern></defs>
+<path d="M20 20h480v280H20z" fill="url(#vehicle-grid-{{ drawing_prefix|default:'scene' }}-{{ vehicle }})"/>
+<g stroke="currentColor" stroke-width=".7" opacity=".45"><path d="M40 55h440M40 49v12m440-12v12M40 270h440M40 264v12m440-12v12M26 78v164m-6-164h12m-12 164h12"/><path d="M36 55l8-3v6l-8-3m448 0-8-3v6l8-3M36 270l8-3v6l-8-3m448 0-8-3v6l8-3"/><path d="M69 30v260M450 30v260" stroke-dasharray="3 6"/></g>
+{% if vehicle == 'excavator' %}
+<g stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+<path d="M106 221h171a19 19 0 0 1 0 38H106a19 19 0 0 1 0-38Z"/><path d="M107 227h168a13 13 0 0 1 0 26H107a13 13 0 0 1 0-26Z"/><path d="M109 221v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6M109 253v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6m18-6v6" stroke-width=".7"/>
+<circle cx="112" cy="240" r="8"/><circle cx="272" cy="240" r="8"/><circle cx="145" cy="240" r="6"/><circle cx="174" cy="240" r="6"/><circle cx="203" cy="240" r="6"/><circle cx="232" cy="240" r="6"/>
+<path d="M119 219v-35h43v-64h68l15 68h26v29H119ZM169 126h54l11 48h-65v-48Z"/><path d="M179 126v48m-10-12h62m-104 32h26v16h-26zM205 180h22m-28 15h55m-55 6h55" stroke-width=".8"/>
+<path d="m245 188 67-112 16 2-64 119-19-9Zm67-112 18-10 92 90-9 11-91-80m91 80 15 45-23 17-19-10 15-12-2-36"/>
+<path d="m273 150 41-49m-44 44 40-50m42 4 47 47m-43-51 47 47M420 191l16 25 28-1-4 15-18 14-28-6-15-20"/><path d="m414 238 1 8m12-5 1 8m12-6 1 8m10-12 3 7"/>
+<circle cx="254" cy="190" r="4"/><circle cx="321" cy="80" r="4"/><circle cx="418" cy="160" r="3"/><path d="M192 210h36v11h-36"/>
+</g>
+<g stroke="currentColor" stroke-width=".6" opacity=".5"><path d="M323 41v173M81 113h218M322 67a45 45 0 0 1 37 20" stroke-dasharray="3 5"/><circle cx="321" cy="80" r="17"/><path d="M301 80h40m-20-20v40"/></g>
+{% else %}
+<g stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+<path d="M67 137h232v80H67v-80Zm0 8h232M76 151h214v53H76v-53ZM80 157h37v41H80m44-41h37v41h-37m44-41h37v41h-37m44-41h72v41h-72"/>
+<path d="M299 217v-95h71l47 50 29 10v35h-34m-113 0h38m-234 0H67m81 0h200m-11 0a34 34 0 0 1 68 0M92 217a34 34 0 0 1 68 0"/>
+<path d="M310 132h52l32 36h-84v-36ZM355 132v36m-45 7h86v37m-86-25h9m102-2h15v12h-15m-113-12h22"/>
+<circle cx="126" cy="222" r="25"/><circle cx="126" cy="222" r="16"/><circle cx="126" cy="222" r="5"/><circle cx="371" cy="222" r="25"/><circle cx="371" cy="222" r="16"/><circle cx="371" cy="222" r="5"/>
+<path d="M62 224h27m73 0h174m73 0h42M178 225v12h69v-12m-59 0v12m15-12v12m15-12v12m15-12v12M61 135h241v-7H61v7Zm270-12v-10h32v10M67 183H55v26h12"/>
+<path d="M119 222h14m-7-7v14m238-7h14m-7-7v14" stroke-width=".7"/>
+</g>
+<g stroke="currentColor" stroke-width=".6" opacity=".5"><path d="M126 100v157M371 100v157M41 222h437" stroke-dasharray="3 5"/><circle cx="126" cy="222" r="33"/><circle cx="371" cy="222" r="33"/></g>
+{% endif %}
+<g fill="currentColor" opacity=".65" font-family="monospace" font-size="8" letter-spacing="1.5"><text x="45" y="45">{% if vehicle == 'excavator' %}EARTHWORK / SIDE ELEVATION{% else %}UTILITY TRUCK / SIDE ELEVATION{% endif %}</text><text x="45" y="292">CONCEPT DRAWING · NOT TO SCALE</text><text x="402" y="292">BS / {% if vehicle == 'excavator' %}02{% else %}01{% endif %}</text></g>
+</svg>
