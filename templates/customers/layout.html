@@ -125,7 +125,8 @@ body:has(.customer-workspace){background-color:#eef4f9;isolation:isolate;color:#
 <div class="customer-workspace">
   {% include 'customers/includes/ambient_blueprints.html' %}
   <nav class="trail" aria-label="Breadcrumb"><a href="{% url 'shop-browse' %}">Marketplace</a><span aria-hidden="true">/</span><span>{% block customer_location %}Customer{% endblock %}</span></nav>
-  {% block customer_content %}{% endblock %}
+  <div class="customer-content">{% block customer_content %}{% endblock %}</div>
   <footer class="footnote"><span>BUILTASUPPLY / Plan. Source. Build.</span><span>Material pricing · Philippine pesos (PHP)</span></footer>
+  {% include 'customers/includes/interactions.html' %}
 </div>
 {% endblock %}
