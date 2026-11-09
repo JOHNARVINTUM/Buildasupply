@@ -2,7 +2,7 @@
 {% block content %}
 <style>
 /* Blueprint design is scoped to customer pages. Shared base and role pages stay owned by their teams. */
-body:has(.customer-workspace){background-color:#f4f7f9;background-image:linear-gradient(#214f7910 1px,transparent 1px),linear-gradient(90deg,#214f7910 1px,transparent 1px);background-size:24px 24px;color:#20384d}
+body:has(.customer-workspace){background-color:#eef4f9;isolation:isolate;color:#20384d}
 .shell:has(.customer-workspace){max-width:1320px;padding:28px 40px 40px;--navy:#163e62;--green:#194f78;--paper:#f4f7f9;--line:#c6d6e1;--muted:#536c7f;--ink:#20384d;--danger:#9c3535}
 .shell:has(.customer-workspace) .top{gap:24px;padding:0 0 24px;flex-wrap:wrap;border-bottom:2px solid #163e62}
 .shell:has(.customer-workspace) .brand{font-size:1.05rem;letter-spacing:.12em;display:flex;gap:12px;align-items:center}
@@ -123,6 +123,7 @@ body:has(.customer-workspace){background-color:#f4f7f9;background-image:linear-g
 @media(max-width:600px){.shell:has(.customer-workspace){padding:20px 16px 32px}.shell:has(.customer-workspace) .top{gap:14px}.shell:has(.customer-workspace) .top nav{gap:4px 16px}.customer-workspace .panel{padding:22px}.customer-workspace .product-grid,.customer-workspace .address-grid,.customer-workspace .form-grid{grid-template-columns:1fr}.customer-workspace .hero{padding:24px 24px 0}.customer-workspace .hero-strip{margin:0 -24px}.customer-workspace .hero h1{font-size:2.9rem;margin:20px 0}.customer-workspace .hero .eyebrow{font-size:8px}.customer-workspace .product-art{aspect-ratio:1.6}.customer-workspace .cart-line{grid-template-columns:40px minmax(0,1fr)}.customer-workspace .cart-line img{width:40px;height:40px}.customer-workspace .cart-line>.line-total{grid-column:2}.customer-workspace .footnote{flex-direction:column;gap:8px}.customer-workspace .card,.customer-workspace .order-card{padding:18px}.customer-workspace .actions>*{flex-grow:1}.customer-workspace .actions form button{width:100%}.customer-workspace .money-row{gap:12px}}
 </style>
 <div class="customer-workspace">
+  {% include 'customers/includes/ambient_blueprints.html' %}
   <nav class="trail" aria-label="Breadcrumb"><a href="{% url 'shop-browse' %}">Marketplace</a><span aria-hidden="true">/</span><span>{% block customer_location %}Customer{% endblock %}</span></nav>
   {% block customer_content %}{% endblock %}
   <footer class="footnote"><span>BUILTASUPPLY / Plan. Source. Build.</span><span>Material pricing · Philippine pesos (PHP)</span></footer>

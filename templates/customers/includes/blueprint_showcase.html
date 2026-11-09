@@ -65,7 +65,7 @@
   const caption = root.querySelector('[data-motion-caption]');
   const toggle = root.querySelector('[data-motion-toggle]');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let current = 0, userPaused = false, inView = true, timer = null;
+  let current = 0, userPaused = document.documentElement?.dataset.customerMotionPaused === 'true', inView = true, timer = null;
   const show = (index) => {
     current = (index + slides.length) % slides.length;
     slides.forEach((slide, i) => {
@@ -85,7 +85,12 @@
   };
   root.querySelector('[data-scene-previous]').addEventListener('click', () => { show(current - 1); sync(); });
   root.querySelector('[data-scene-next]').addEventListener('click', () => { show(current + 1); sync(); });
-  toggle.addEventListener('click', () => { userPaused = !userPaused; sync(); });
+  toggle.addEventListener('click', () => {
+    if (document.documentElement?.dataset.customerMotionPaused !== undefined) {
+      document.dispatchEvent(new CustomEvent('customer-motion-request', { detail: { paused: !userPaused } }));
+    } else { userPaused = !userPaused; sync(); }
+  });
+  document.addEventListener('customer-motion-change', (event) => { userPaused = event.detail.paused; sync(); });
   document.addEventListener('visibilitychange', sync);
   reduced.addEventListener('change', sync);
   if ('IntersectionObserver' in window) {
