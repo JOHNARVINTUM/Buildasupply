@@ -1,20 +1,36 @@
-{% extends 'base.html' %}
-{% block content %}
-<section class="panel" style="max-width:100%">
-  <div class="status">SUPERADMIN CONTROL CENTER</div>
-  <h1>Operations dashboard</h1>
-  <p><a class="button" href="{% url 'operations-users' %}">Manage users</a> <a class="button secondary" href="{% url 'operations-suppliers' %}">Manage suppliers</a></p>
-  <h2>COD management</h2><p><a class="button" href="{% url 'operations-cod-orders' %}">COD orders</a> <a class="button secondary" href="{% url 'operations-failed-deliveries' %}">Failed deliveries &amp; verified returns</a> <a class="button secondary" href="{% url 'operations-cod-disputes' %}">Collection disputes</a> <a class="button secondary" href="{% url 'operations-cod-settlements' %}">Settlement monitoring</a> <a class="button secondary" href="{% url 'operations-held-reversals' %}">Held wallet reversals</a> <a class="button secondary" href="{% url 'operations-reconciliations' %}">Payment reconciliation</a></p>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
-    <article style="border:1px solid var(--line);padding:16px"><span class="muted">Supplier approvals</span><h2>{{ pending_suppliers }}</h2></article>
-    <article style="border:1px solid var(--line);padding:16px"><span class="muted">Product moderation</span><h2>{{ pending_products }}</h2></article>
-    <article style="border:1px solid var(--line);padding:16px"><span class="muted">Failed payments</span><h2>{{ failed_payments }}</h2></article>
-    <article style="border:1px solid var(--line);padding:16px"><span class="muted">Pending payouts</span><h2>{{ pending_payouts }}</h2></article>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:18px"><article style="border:1px solid var(--line);padding:12px"><span class="muted">COD supplier orders</span><h2>{{ cod_metrics.total }}</h2></article><article style="border:1px solid var(--line);padding:12px"><span class="muted">Awaiting acceptance</span><h2>{{ cod_metrics.incoming }}</h2></article><article style="border:1px solid var(--line);padding:12px"><span class="muted">Delivered</span><h2>{{ cod_metrics.delivered }}</h2></article><article style="border:1px solid var(--line);padding:12px"><span class="muted">Awaiting receipt</span><h2>{{ cod_metrics.awaiting_receipt }}</h2></article><article style="border:1px solid var(--line);padding:12px"><span class="muted">Collections recorded</span><h2>{{ cod_metrics.collections }}</h2></article><article style="border:1px solid var(--line);padding:12px"><span class="muted">Open COD exceptions</span><h2>{{ cod_metrics.exceptions }}</h2></article><article style="border:1px solid var(--line);padding:12px"><span class="muted">Pending settlements</span><h2>{{ cod_metrics.settlements_pending }}</h2></article><article style="border:1px solid var(--line);padding:12px"><span class="muted">Held settlements</span><h2>{{ cod_metrics.settlements_held }}</h2></article></div>
-  <h2>Financial position</h2>
-  <p>Pending supplier funds: ₱{{ wallet.pending|default:0|floatformat:-2 }} · Available: ₱{{ wallet.available|default:0|floatformat:-2 }}</p>
-  <h2>Recent administrative actions</h2>
-  <table><thead><tr><th>Action</th><th>Target</th><th>Time</th></tr></thead><tbody>{% for item in actions %}<tr><td>{{ item.action }}</td><td>{{ item.target_type }}</td><td>{{ item.created_at }}</td></tr>{% empty %}<tr><td colspan="3">No administrative actions recorded.</td></tr>{% endfor %}</tbody></table>
+{% extends 'operations/layout.html' %}
+{% block title %}Operations dashboard | BUILTASUPPLY{% endblock %}
+{% block operations_location %}Dashboard{% endblock %}
+{% block operations_content %}
+<section class="panel" aria-labelledby="operations-heading">
+  <span class="status">Superadmin control center</span>
+  <h1 id="operations-heading">Operations dashboard</h1>
+  <p class="muted">Review marketplace access, supplier activity, COD fulfillment, and financial exceptions from one control surface.</p>
+  <div class="operations-actions" aria-label="Primary management actions"><a class="button" href="{% url 'operations-users' %}">Manage users</a><a class="button secondary" href="{% url 'operations-suppliers' %}">Manage suppliers</a></div>
+
+  <section class="operations-section" aria-labelledby="review-heading">
+    <div class="operations-section-heading"><div><span class="operations-kicker">01 / Marketplace review</span><h2 id="review-heading">Approval and payment queues</h2></div></div>
+    <div class="operations-metrics">
+      <article class="operations-metric"><span>Supplier approvals</span><strong>{{ pending_suppliers }}</strong></article><article class="operations-metric"><span>Product moderation</span><strong>{{ pending_products }}</strong></article><article class="operations-metric"><span>Failed payments</span><strong>{{ failed_payments }}</strong></article><article class="operations-metric"><span>Pending payouts</span><strong>{{ pending_payouts }}</strong></article>
+    </div>
+  </section>
+
+  <section class="operations-section" aria-labelledby="cod-heading">
+    <div class="operations-section-heading"><div><span class="operations-kicker">02 / Cash on delivery</span><h2 id="cod-heading">COD management</h2></div></div>
+    <div class="operations-actions"><a class="button" href="{% url 'operations-cod-orders' %}">COD orders</a><a class="button secondary" href="{% url 'operations-failed-deliveries' %}">Failed deliveries &amp; returns</a><a class="button secondary" href="{% url 'operations-cod-disputes' %}">Collection disputes</a><a class="button secondary" href="{% url 'operations-cod-settlements' %}">Settlement monitoring</a><a class="button secondary" href="{% url 'operations-held-reversals' %}">Held wallet reversals</a><a class="button secondary" href="{% url 'operations-reconciliations' %}">Payment reconciliation</a></div>
+    <div class="operations-metrics compact">
+      <article class="operations-metric"><span>Supplier orders</span><strong>{{ cod_metrics.total }}</strong></article><article class="operations-metric"><span>Awaiting acceptance</span><strong>{{ cod_metrics.incoming }}</strong></article><article class="operations-metric"><span>Delivered</span><strong>{{ cod_metrics.delivered }}</strong></article><article class="operations-metric"><span>Awaiting receipt</span><strong>{{ cod_metrics.awaiting_receipt }}</strong></article><article class="operations-metric"><span>Collections recorded</span><strong>{{ cod_metrics.collections }}</strong></article><article class="operations-metric"><span>Open exceptions</span><strong>{{ cod_metrics.exceptions }}</strong></article><article class="operations-metric"><span>Pending settlements</span><strong>{{ cod_metrics.settlements_pending }}</strong></article><article class="operations-metric"><span>Held settlements</span><strong>{{ cod_metrics.settlements_held }}</strong></article>
+    </div>
+  </section>
+
+  <section class="operations-section" aria-labelledby="finance-heading">
+    <div class="operations-section-heading"><div><span class="operations-kicker">03 / Ledger position</span><h2 id="finance-heading">Financial position</h2></div></div>
+    <div class="operations-finance"><p><span class="muted">Pending supplier funds</span><br><strong>₱{{ wallet.pending|default:0|floatformat:-2 }}</strong></p><p><span class="muted">Available supplier funds</span><br><strong>₱{{ wallet.available|default:0|floatformat:-2 }}</strong></p></div>
+  </section>
+
+  <section class="operations-section" aria-labelledby="actions-heading">
+    <div class="operations-section-heading"><div><span class="operations-kicker">04 / Audit trail</span><h2 id="actions-heading">Recent administrative actions</h2></div><a href="{% url 'operations-audit' %}">View audit log</a></div>
+    <table><thead><tr><th>Action</th><th>Target</th><th>Time</th></tr></thead><tbody>{% for item in actions %}<tr><td>{{ item.action }}</td><td>{{ item.target_type }}</td><td>{{ item.created_at }}</td></tr>{% empty %}<tr><td colspan="3">No administrative actions recorded.</td></tr>{% endfor %}</tbody></table>
+  </section>
 </section>
 {% endblock %}
