@@ -1,1 +1,78 @@
-{% extends 'base.html' %}{% block title %}Sign in | BUILTASUPPLY{% endblock %}{% block content %}<section class="panel"><div class="status">SECURE ACCOUNT ACCESS</div><h1>Sign in</h1><p class="muted">Manage procurement activity and supplier operations securely.</p><form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<label>{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}<button>Sign in</button></form><p><a href="{% url 'accounts:password-reset' %}">Forgot password?</a></p><p class="muted">New here? <a href="{% url 'accounts:register' %}">Create customer account</a> · <a href="{% url 'accounts:supplier-register' %}">Register a supplier</a></p></section>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Sign in | BUILTASUPPLY{% endblock %}
+{% block content %}
+<style>
+  :root { --login-navy:#102a43; --login-orange:#f26b38; --login-yellow:#f4c95d; --login-mint:#b8d8cf; --login-line:#d9dfdc; --login-muted:#657887; }
+  body { overflow:hidden; background:#f6f4ef; }
+  .shell { display:flex; flex-direction:column; height:100vh; max-width:1320px; overflow:hidden; padding:22px 30px 18px; }
+  .top { border-bottom:0; padding:6px 0 18px; }
+  .brand { color:var(--login-navy); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:.16em; }
+  .top:after { content:""; position:absolute; left:0; right:0; top:0; height:4px; background:linear-gradient(90deg,var(--login-orange) 0 28%,var(--login-yellow) 28% 52%,var(--login-mint) 52% 100%); }
+  @keyframes login-grid { from { background-position:0 0,0 0; } to { background-position:34px 34px,-34px 0; } }
+  @keyframes login-float { 0%,100% { transform:translate(0,0) rotate(-4deg); } 50% { transform:translate(14px,-12px) rotate(2deg); } }
+  @keyframes login-orbit { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+  .login-page { position:fixed; z-index:2; top:69px; bottom:18px; left:50%; transform:translateX(-50%); display:grid; grid-template-columns:minmax(340px,.9fr) minmax(480px,1.1fr); width:min(1260px,calc(100% - 60px)); min-height:0; border:1px solid var(--login-line); border-radius:18px; background:#fff; box-shadow:0 18px 45px rgba(16,42,67,.08); overflow:hidden; }
+  .login-aside { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; min-height:0; padding:42px 38px; color:#fff; background:var(--login-navy); }
+  .login-aside:before { content:""; position:absolute; inset:0; opacity:.16; background-image:linear-gradient(rgba(255,255,255,.45) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.45) 1px,transparent 1px); background-size:34px 34px; transform:rotate(-7deg) scale(1.2); animation:login-grid 14s linear infinite; }
+  .login-aside:after { content:""; position:absolute; width:340px; height:340px; right:-160px; bottom:-100px; border:1px solid rgba(244,201,93,.72); border-radius:50%; box-shadow:0 0 0 28px rgba(244,201,93,.08),0 0 0 58px rgba(244,201,93,.05); animation:login-orbit 26s linear infinite; }
+  .login-aside > * { position:relative; z-index:1; }
+  .login-kicker { color:var(--login-yellow); font:700 .68rem monospace; letter-spacing:.16em; text-transform:uppercase; }
+  .login-aside h1 { max-width:400px; color:#fff; font:700 clamp(2.7rem,5vw,4.8rem)/.91 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.08em; margin:24px 0 18px; }
+  .login-copy { color:rgba(255,255,255,.72); font-size:.96rem; line-height:1.65; max-width:360px; margin:0; }
+  .login-stamp { position:absolute; right:18%; bottom:140px; width:170px; height:170px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.4); border-radius:50%; color:rgba(255,255,255,.68); font:700 .64rem/1.5 monospace; letter-spacing:.12em; text-align:center; transform:rotate(-12deg); animation:login-float 6s ease-in-out infinite; }
+  .login-stamp strong { display:block; color:var(--login-yellow); font-size:1.8rem; letter-spacing:-.08em; }
+  .login-note { display:flex; align-items:flex-start; gap:12px; max-width:300px; color:rgba(255,255,255,.78); font-size:.78rem; line-height:1.45; }
+  .login-note b { color:var(--login-navy); display:grid; place-items:center; flex:0 0 25px; height:25px; border-radius:50%; background:var(--login-yellow); }
+  .login-form-wrap { position:relative; align-self:stretch; display:flex; flex-direction:column; justify-content:center; min-height:0; overflow:hidden; padding:42px clamp(30px,6vw,86px); }
+  .login-form-wrap:before { content:""; position:absolute; inset:-30%; background:radial-gradient(circle at 75% 20%,rgba(184,216,207,.34),transparent 25%),radial-gradient(circle at 20% 88%,rgba(244,201,93,.17),transparent 22%); animation:login-float 10s ease-in-out infinite; pointer-events:none; }
+  .login-form-wrap > * { position:relative; z-index:1; }
+  .login-form-kicker { color:var(--login-orange); font:800 .7rem monospace; letter-spacing:.13em; text-transform:uppercase; }
+  .login-form-wrap h2 { color:var(--login-navy); font:700 clamp(2.15rem,4vw,3.3rem)/.95 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.075em; margin:12px 0 13px; }
+  .login-intro { color:var(--login-muted); font-size:.92rem; line-height:1.6; max-width:460px; margin:0 0 25px; }
+  .login-error { padding:12px 14px; border-left:3px solid #a12b2b; background:#fff0ed; color:#8c2828; font-size:.84rem; margin-bottom:15px; }
+  .login-form label { display:block; color:var(--login-navy); font:700 .78rem "Bahnschrift SemiBold","Trebuchet MS",sans-serif; margin:15px 0 0; }
+  .login-form input { display:block; width:100%; border:1px solid #c9d4d5; border-radius:7px; background:#fbfcfa; color:var(--login-navy); font:inherit; margin-top:7px; padding:13px; outline:none; transition:border-color .2s ease,box-shadow .2s ease,background .2s ease; }
+  .login-form input:focus { border-color:var(--login-orange); background:#fff; box-shadow:0 0 0 4px rgba(242,107,56,.12); }
+  .login-form .errorlist { color:#a12b2b; font-size:.75rem; font-weight:500; margin:6px 0 0; padding-left:18px; }
+  .login-actions { display:flex; align-items:center; justify-content:space-between; gap:18px; border-top:1px solid var(--login-line); margin-top:26px; padding-top:23px; }
+  .login-actions button { margin:0; border-radius:999px; background:var(--login-orange); padding:14px 23px; box-shadow:0 8px 16px rgba(242,107,56,.2); }
+  .login-actions button:hover { background:#d95529; transform:translateY(-2px); }
+  .forgot-link { color:var(--login-navy); font-size:.78rem; font-weight:800; text-decoration:none; }
+  .forgot-link:hover { color:var(--login-orange); }
+  .join-links { border-top:1px solid var(--login-line); color:var(--login-muted); font-size:.78rem; line-height:1.6; margin:25px 0 0; padding-top:20px; }
+  .join-links a { color:var(--login-navy); font-weight:800; text-decoration:none; }
+  .join-links a:hover { color:var(--login-orange); }
+  @media (max-width:800px) { .shell { padding:18px 17px 10px; } .login-page { top:61px; bottom:10px; left:0; transform:none; grid-template-columns:1fr; width:100%; border-radius:13px; } .login-aside { display:none; } .login-form-wrap { padding:24px 28px; } }
+  @media (max-width:560px) { .login-form-wrap { padding:18px; } .login-form-wrap h2 { font-size:2.2rem; } .login-intro { font-size:.78rem; line-height:1.4; margin-bottom:17px; } .login-form label { font-size:.68rem; margin-top:10px; } .login-form input { margin-top:4px; padding:9px; font-size:.84rem; } .login-actions { margin-top:17px; padding-top:15px; } .login-actions button { padding:11px 15px; font-size:.8rem; } .join-links { margin-top:17px; padding-top:14px; font-size:.7rem; } }
+  @media (prefers-reduced-motion: reduce) { .login-aside:before,.login-aside:after,.login-stamp,.login-form-wrap:before { animation:none; } }
+</style>
+
+<main class="login-page">
+  <aside class="login-aside">
+    <div><span class="login-kicker">Welcome back to the work</span><h1>Keep the build moving.</h1><p class="login-copy">Your project dashboard, supplier network, and next order are right where you left them.</p></div>
+    <div class="login-stamp" aria-hidden="true"><div><strong>01</strong>SECURE<br>ACCESS<br>PROJECT READY</div></div>
+    <div class="login-note"><b>↗</b><span>Everything you need to source clearly and stay focused on the work ahead.</span></div>
+  </aside>
+
+  <section class="login-form-wrap" aria-labelledby="login-title">
+    <span class="login-form-kicker">Secure account access</span>
+    <h2 id="login-title">Good to see you again.</h2>
+    <p class="login-intro">Sign in to manage procurement activity, keep tabs on orders, and get back to building.</p>
+    <form method="post" class="login-form" data-login-form>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="login-error">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}
+      <div class="login-actions"><a class="forgot-link" href="{% url 'accounts:password-reset' %}">Forgot password?</a><button type="submit">Sign in <span aria-hidden="true">↗</span></button></div>
+    </form>
+    <p class="join-links">New here? <a href="{% url 'accounts:register' %}">Create customer account</a><br><a href="{% url 'accounts:supplier-register' %}">Register a supplier</a></p>
+  </section>
+</main>
+
+<script>
+  document.querySelector('[data-login-form]')?.addEventListener('submit', function () {
+    const button = this.querySelector('button[type=submit]');
+    if (button && this.checkValidity()) { button.disabled = true; button.textContent = 'Signing in…'; }
+  });
+</script>
+{% endblock %}
