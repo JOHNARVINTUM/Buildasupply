@@ -21,3 +21,8 @@ def home(request):
     logout(request)
     messages.error(request, "Your account role is not recognized. Please contact support.")
     return redirect("accounts:login")
+
+
+def about(request):
+    """Render the public BUILTASUPPLY and QuadraX team page."""
+    return render(request, "about.html")

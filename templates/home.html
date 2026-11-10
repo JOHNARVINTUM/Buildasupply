@@ -10,19 +10,32 @@
   .brand { color:var(--ink-deep); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; font-size:.94rem; letter-spacing:.16em; }
   .top:after { content:""; position:absolute; left:0; right:0; top:0; height:4px; background:linear-gradient(90deg,var(--orange) 0 28%,var(--yellow) 28% 52%,var(--mint) 52% 100%); }
   .home { position:relative; isolation:isolate; overflow:hidden; font-family:"Aptos","Segoe UI",sans-serif; }
-  .home > *:not(.parallax-backdrop) { position:relative; z-index:1; }
-  .parallax-backdrop { position:absolute; z-index:0; inset:0; overflow:hidden; pointer-events:none; background-image:linear-gradient(rgba(16,42,67,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(16,42,67,.035) 1px,transparent 1px); background-size:48px 48px; }
+  .home > *:not(.parallax-backdrop):not(.tool-field) { position:relative; z-index:2; }
+  .parallax-backdrop { position:absolute; z-index:0; inset:0; overflow:hidden; pointer-events:none; background-image:linear-gradient(rgba(16,42,67,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(16,42,67,.035) 1px,transparent 1px); background-position:0 var(--parallax-grid,0px),var(--parallax-grid,0px) 0; background-size:48px 48px; transition:background-position .2s linear; }
   .parallax-backdrop:before { content:""; position:absolute; top:3%; right:-12%; width:48vw; height:48vw; min-width:420px; min-height:420px; border:1px solid rgba(242,107,56,.14); border-radius:50%; transform:translate3d(0,var(--parallax-ring,0px),0); transition:transform .15s linear; }
   .parallax-backdrop:after { content:""; position:absolute; top:8%; right:-8%; width:40vw; height:40vw; min-width:350px; min-height:350px; border:1px dashed rgba(16,42,67,.12); border-radius:50%; transform:translate3d(0,calc(var(--parallax-ring,0px) * -1.35),0); transition:transform .15s linear; }
   .parallax-orb { position:absolute; display:block; border-radius:50%; filter:blur(1px); opacity:.72; transform:translate3d(0,var(--parallax-orb,0px),0); transition:transform .18s linear; }
   .parallax-orb--orange { top:25%; left:-110px; width:230px; height:230px; background:radial-gradient(circle at 65% 35%,rgba(242,107,56,.17),rgba(242,107,56,0) 70%); }
   .parallax-orb--yellow { top:62%; right:-90px; width:210px; height:210px; background:radial-gradient(circle at 35% 35%,rgba(244,201,93,.2),rgba(244,201,93,0) 70%); }
   .parallax-orb--mint { top:87%; left:13%; width:270px; height:270px; background:radial-gradient(circle at 45% 45%,rgba(184,216,207,.26),rgba(184,216,207,0) 70%); }
+  .tool-field { position:absolute; z-index:1; inset:0; overflow:hidden; pointer-events:none; transform:translate3d(0,var(--parallax-tools,0px),0); transition:transform .2s linear; }
+  .tool-field span { position:absolute; display:grid; place-items:center; width:44px; height:44px; color:rgba(16,42,67,.28); background:rgba(255,255,255,.18); border:1px solid rgba(16,42,67,.16); border-radius:12px; font:700 1.55rem/1 "Segoe UI Symbol","Segoe UI",sans-serif; box-shadow:0 8px 18px rgba(16,42,67,.06); }
+  .tool-one,.tool-three { color:rgba(242,107,56,.48) !important; border-color:rgba(242,107,56,.24) !important; }
+  .tool-two,.tool-four { color:rgba(16,42,67,.34) !important; }
+  .tool-five { color:rgba(244,201,93,.86) !important; }
+  .tool-one { top:18%; left:8%; animation:tool-drift-a 15s ease-in-out infinite; }
+  .tool-two { top:39%; right:7%; width:54px !important; height:24px !important; border-radius:999px !important; animation:tool-drift-b 18s ease-in-out infinite; }
+  .tool-three { top:67%; left:7%; animation:tool-drift-c 17s ease-in-out infinite; }
+  .tool-four { top:82%; right:15%; animation:tool-drift-a 20s 1s ease-in-out infinite reverse; }
+  .tool-five { top:12%; right:32%; width:30px !important; height:30px !important; border:0 !important; box-shadow:none !important; animation:tool-drift-b 13s 2s ease-in-out infinite reverse; }
   .home h1,.home h2,.home h3,.home strong { font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; }
   @keyframes blueprint-drift { from { background-position:0 0,0 0; } to { background-position:32px 32px,-32px 0; } }
   @keyframes blueprint-pulse { 0%,100% { opacity:.42; transform:scaleX(1); } 50% { opacity:.9; transform:scaleX(1.04); } }
   @keyframes gentle-float { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-9px) rotate(1deg); } }
   @keyframes slide-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes tool-drift-a { 0%,100% { transform:translate3d(0,0,0) rotate(-8deg); } 50% { transform:translate3d(22px,-28px,0) rotate(12deg); } }
+  @keyframes tool-drift-b { 0%,100% { transform:translate3d(0,0,0) rotate(8deg); } 50% { transform:translate3d(-30px,20px,0) rotate(-10deg); } }
+  @keyframes tool-drift-c { 0%,100% { transform:translate3d(0,0,0) rotate(0deg); } 50% { transform:translate3d(18px,24px,0) rotate(180deg); } }
   .home a { transition:transform .2s ease, box-shadow .2s ease, background .2s ease; }
   .home a:hover { transform:translateY(-2px); }
   .hero { display:grid; grid-template-columns:minmax(0,1.03fr) minmax(420px,.97fr); gap:clamp(34px,6vw,86px); align-items:center; padding:72px 0 84px; }
@@ -128,6 +141,7 @@
 
 <div class="home">
   <div class="parallax-backdrop" aria-hidden="true"><span class="parallax-orb parallax-orb--orange"></span><span class="parallax-orb parallax-orb--yellow"></span><span class="parallax-orb parallax-orb--mint"></span></div>
+  <div class="tool-field" aria-hidden="true"><span class="tool-one">⚒</span><span class="tool-two">⌁</span><span class="tool-three">⚙</span><span class="tool-four">▱</span><span class="tool-five">✦</span></div>
   <section class="hero" aria-labelledby="hero-title">
     <div>
       <span class="kicker">Construction supply, made clear</span>
@@ -180,7 +194,7 @@
     <article class="step"><b>03 / DELIVER</b><h3>Keep work moving</h3><p>Track the order journey and stay focused on the work that matters on site.</p></article>
   </div></section>
 
-  <footer class="home-footer"><span>BUILTASUPPLY / Independent procurement for construction.</span><a href="{% url 'accounts:login' %}">Already have an account? Sign in →</a></footer>
+  <footer class="home-footer"><span>BUILTASUPPLY / Independent procurement for construction.</span><span><a href="{% url 'about' %}">About us</a> · <a href="{% url 'accounts:login' %}">Already have an account? Sign in →</a></span></footer>
 </div>
 <script>
   (() => {
@@ -191,6 +205,8 @@
       const scroll = window.scrollY || 0;
       page.style.setProperty('--parallax-ring', `${scroll * 0.07}px`);
       page.style.setProperty('--parallax-orb', `${scroll * -0.13}px`);
+      page.style.setProperty('--parallax-grid', `${(scroll * -0.045) % 48}px`);
+      page.style.setProperty('--parallax-tools', `${scroll * -0.16}px`);
       ticking = false;
     };
     window.addEventListener('scroll', () => {
