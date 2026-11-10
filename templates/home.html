@@ -1,43 +1,218 @@
 {% extends "base.html" %}
-{% block title %}BUILTASUPPLY | Procurement made practical{% endblock %}
+{% load static %}
+{% block title %}BUILTASUPPLY | Build with confidence{% endblock %}
 {% block content %}
 <style>
-  .entry { padding: 56px 0 40px; }
-  .entry__eyebrow { color: var(--green); font-size: .78rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
-  .entry__grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(250px, .75fr); gap: 48px; align-items: end; margin-top: 18px; }
-  .entry h1 { color: var(--navy); font-size: clamp(2.3rem, 6vw, 4.5rem); letter-spacing: -.055em; line-height: .98; margin: 0; max-width: 760px; }
-  .entry__lede { color: var(--muted); font-size: 1.12rem; margin: 24px 0 0; max-width: 610px; }
-  .entry__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
-  .entry__actions .button { margin-top: 0; }
-  .entry__note { border-left: 4px solid var(--green); color: var(--muted); font-size: .95rem; padding: 5px 0 5px 16px; }
-  .entry__band { background: var(--navy); color: #fff; display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 64px; }
-  .entry__band div { border-right: 1px solid rgba(255,255,255,.22); padding: 22px 24px; }
-  .entry__band div:last-child { border-right: 0; }
-  .entry__band strong { display: block; font-size: .82rem; letter-spacing: .075em; text-transform: uppercase; }
-  .entry__band span { color: #d8e2eb; display: block; font-size: .92rem; margin-top: 5px; }
-  .entry__footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; margin-top: 36px; padding-top: 20px; }
-  .button:focus-visible, .brand:focus-visible { outline: 3px solid #216869; outline-offset: 3px; }
-  @media (max-width: 680px) { .entry { padding-top: 38px; } .entry__grid { grid-template-columns: 1fr; gap: 28px; } .entry__band { grid-template-columns: 1fr; margin-top: 42px; } .entry__band div { border-bottom: 1px solid rgba(255,255,255,.22); border-right: 0; } .entry__band div:last-child { border-bottom: 0; } }
+  :root { --ink-deep:#102a43; --slate:#5e7182; --paper:#f6f4ef; --cream:#fbfaf7; --orange:#f26b38; --yellow:#f4c95d; --mint:#b8d8cf; --line:#d9dfdc; }
+  body { background:var(--paper); }
+  .shell { max-width:1240px; padding:22px 30px 40px; }
+  .top { border-bottom:0; padding:6px 0 18px; }
+  .brand { color:var(--ink-deep); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; font-size:.94rem; letter-spacing:.16em; }
+  .top:after { content:""; position:absolute; left:0; right:0; top:0; height:4px; background:linear-gradient(90deg,var(--orange) 0 28%,var(--yellow) 28% 52%,var(--mint) 52% 100%); }
+  .home { position:relative; isolation:isolate; overflow:hidden; font-family:"Aptos","Segoe UI",sans-serif; }
+  .home > *:not(.parallax-backdrop):not(.tool-field) { position:relative; z-index:2; }
+  .parallax-backdrop { position:absolute; z-index:0; inset:0; overflow:hidden; pointer-events:none; background-image:linear-gradient(rgba(16,42,67,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(16,42,67,.035) 1px,transparent 1px); background-position:0 var(--parallax-grid,0px),var(--parallax-grid,0px) 0; background-size:48px 48px; transition:background-position .2s linear; }
+  .parallax-backdrop:before { content:""; position:absolute; top:3%; right:-12%; width:48vw; height:48vw; min-width:420px; min-height:420px; border:1px solid rgba(242,107,56,.14); border-radius:50%; transform:translate3d(0,var(--parallax-ring,0px),0); transition:transform .15s linear; }
+  .parallax-backdrop:after { content:""; position:absolute; top:8%; right:-8%; width:40vw; height:40vw; min-width:350px; min-height:350px; border:1px dashed rgba(16,42,67,.12); border-radius:50%; transform:translate3d(0,calc(var(--parallax-ring,0px) * -1.35),0); transition:transform .15s linear; }
+  .parallax-orb { position:absolute; display:block; border-radius:50%; filter:blur(1px); opacity:.72; transform:translate3d(0,var(--parallax-orb,0px),0); transition:transform .18s linear; }
+  .parallax-orb--orange { top:25%; left:-110px; width:230px; height:230px; background:radial-gradient(circle at 65% 35%,rgba(242,107,56,.17),rgba(242,107,56,0) 70%); }
+  .parallax-orb--yellow { top:62%; right:-90px; width:210px; height:210px; background:radial-gradient(circle at 35% 35%,rgba(244,201,93,.2),rgba(244,201,93,0) 70%); }
+  .parallax-orb--mint { top:87%; left:13%; width:270px; height:270px; background:radial-gradient(circle at 45% 45%,rgba(184,216,207,.26),rgba(184,216,207,0) 70%); }
+  .tool-field { position:absolute; z-index:1; inset:0; overflow:hidden; pointer-events:none; transform:translate3d(0,var(--parallax-tools,0px),0); transition:transform .2s linear; }
+  .tool-field span { position:absolute; display:grid; place-items:center; width:44px; height:44px; color:rgba(16,42,67,.28); background:rgba(255,255,255,.18); border:1px solid rgba(16,42,67,.16); border-radius:12px; font:700 1.55rem/1 "Segoe UI Symbol","Segoe UI",sans-serif; box-shadow:0 8px 18px rgba(16,42,67,.06); }
+  .tool-one,.tool-three { color:rgba(242,107,56,.48) !important; border-color:rgba(242,107,56,.24) !important; }
+  .tool-two,.tool-four { color:rgba(16,42,67,.34) !important; }
+  .tool-five { color:rgba(244,201,93,.86) !important; }
+  .tool-one { top:18%; left:8%; animation:tool-drift-a 15s ease-in-out infinite; }
+  .tool-two { top:39%; right:7%; width:54px !important; height:24px !important; border-radius:999px !important; animation:tool-drift-b 18s ease-in-out infinite; }
+  .tool-three { top:67%; left:7%; animation:tool-drift-c 17s ease-in-out infinite; }
+  .tool-four { top:82%; right:15%; animation:tool-drift-a 20s 1s ease-in-out infinite reverse; }
+  .tool-five { top:12%; right:32%; width:30px !important; height:30px !important; border:0 !important; box-shadow:none !important; animation:tool-drift-b 13s 2s ease-in-out infinite reverse; }
+  .home h1,.home h2,.home h3,.home strong { font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; }
+  @keyframes blueprint-drift { from { background-position:0 0,0 0; } to { background-position:32px 32px,-32px 0; } }
+  @keyframes blueprint-pulse { 0%,100% { opacity:.42; transform:scaleX(1); } 50% { opacity:.9; transform:scaleX(1.04); } }
+  @keyframes gentle-float { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-9px) rotate(1deg); } }
+  @keyframes slide-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes tool-drift-a { 0%,100% { transform:translate3d(0,0,0) rotate(-8deg); } 50% { transform:translate3d(22px,-28px,0) rotate(12deg); } }
+  @keyframes tool-drift-b { 0%,100% { transform:translate3d(0,0,0) rotate(8deg); } 50% { transform:translate3d(-30px,20px,0) rotate(-10deg); } }
+  @keyframes tool-drift-c { 0%,100% { transform:translate3d(0,0,0) rotate(0deg); } 50% { transform:translate3d(18px,24px,0) rotate(180deg); } }
+  .home a { transition:transform .2s ease, box-shadow .2s ease, background .2s ease; }
+  .home a:hover { transform:translateY(-2px); }
+  .hero { display:grid; grid-template-columns:minmax(0,1.03fr) minmax(420px,.97fr); gap:clamp(34px,6vw,86px); align-items:center; padding:72px 0 84px; }
+  .hero > div:first-child { animation:slide-in .7s ease both; }
+  .kicker { display:inline-flex; align-items:center; gap:9px; color:var(--orange); font-size:.73rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+  .kicker:before { content:""; width:28px; height:2px; background:var(--orange); }
+  h1 { color:var(--ink-deep); font-size:clamp(3.5rem,7vw,6.65rem); letter-spacing:-.09em; line-height:.88; margin:20px 0 26px; max-width:760px; }
+  .hero-copy { color:var(--slate); font-size:1.1rem; line-height:1.7; margin:0; max-width:540px; }
+  .hero-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:34px; }
+  .hero-actions .button { margin:0; border-radius:999px; padding:14px 22px; box-shadow:0 8px 18px rgba(16,42,67,.1); }
+  .hero-actions .button span { display:inline-block; transition:transform .25s ease; }
+  .hero-actions .button:hover span { transform:translate(3px,-3px); }
+  .hero-actions .button:first-child { background:var(--orange); }
+  .hero-actions .button:first-child:hover { background:#da5425; }
+  .hero-actions .secondary { color:var(--ink-deep); border-color:#b9c6c4; background:transparent; box-shadow:none; }
+  .hero-meta { display:flex; gap:24px; margin-top:43px; color:var(--slate); font-size:.82rem; }
+  .hero-meta strong { display:block; color:var(--ink-deep); font-size:1.03rem; margin-bottom:3px; }
+  .hero-visual { position:relative; min-height:475px; }
+  .blueprint { position:absolute; inset:22px 0 0 28px; overflow:hidden; border:1px solid rgba(255,255,255,.3); border-radius:4px; background-color:var(--ink-deep); background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px); background-size:32px 32px; box-shadow:18px 20px 0 var(--mint); animation:slide-in .8s .1s ease both; }
+  .blueprint:hover { box-shadow:22px 24px 0 var(--mint); }
+  .blueprint:hover:before { color:var(--yellow); }
+  .blueprint:before { content:"PROJECT / 04"; position:absolute; top:25px; left:28px; color:rgba(255,255,255,.6); font:700 .62rem/1 monospace; letter-spacing:.2em; }
+  .blueprint:after { content:"BUILTASUPPLY"; position:absolute; right:22px; bottom:20px; color:rgba(255,255,255,.58); font:700 .6rem/1 monospace; letter-spacing:.18em; }
+  .plan-card { position:absolute; left:13%; right:13%; top:21%; bottom:16%; border:1px solid rgba(255,255,255,.5); padding:26px; }
+  .plan-card:before,.plan-card:after { content:""; position:absolute; background:rgba(244,201,93,.9); animation:blueprint-pulse 3.8s ease-in-out infinite; transform-origin:left center; }
+  .plan-card:before { width:66%; height:2px; top:38%; left:0; box-shadow:0 76px 0 rgba(244,201,93,.9); }
+  .plan-card:after { width:2px; height:72%; top:0; left:38%; box-shadow:118px 0 0 rgba(244,201,93,.9); }
+  .plan-label { position:absolute; left:26px; top:24px; color:#fff; font:700 .62rem/1.4 monospace; letter-spacing:.13em; }
+  .plan-number { position:absolute; right:25px; bottom:20px; color:var(--yellow); font-size:3.8rem; font-weight:800; letter-spacing:-.08em; }
+  .floating-note { position:absolute; left:-8px; bottom:42px; padding:14px 17px; background:var(--yellow); color:var(--ink-deep); font-size:.76rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; box-shadow:8px 8px 0 rgba(16,42,67,.18); animation:gentle-float 4.5s ease-in-out infinite; }
+  .floating-note span { display:block; color:rgba(16,42,67,.65); font-size:.62rem; letter-spacing:.03em; margin-top:5px; text-transform:none; }
+  .proof { display:grid; grid-template-columns:1.15fr 2fr; gap:40px; align-items:center; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:25px 0; }
+  .proof p { color:var(--slate); font-size:.82rem; line-height:1.5; margin:0; max-width:220px; }
+  .proof p strong { color:var(--ink-deep); display:block; font-size:.72rem; letter-spacing:.12em; margin-bottom:6px; text-transform:uppercase; }
+  .proof-list { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .proof-list span { color:var(--ink-deep); font-size:.86rem; font-weight:750; }
+  .proof-list span:before { content:"✓"; color:var(--orange); margin-right:8px; }
+  .material-story { display:grid; grid-template-columns:1.13fr .87fr; gap:14px; align-items:stretch; margin-top:84px; }
+  .material-feature { position:relative; min-height:455px; overflow:hidden; background:var(--ink-deep); color:#fff; }
+  .material-feature img,.material-tile img { width:100%; height:100%; display:block; object-fit:cover; transition:transform .65s cubic-bezier(.2,.7,.2,1), filter .4s ease; }
+  .material-feature:after,.material-tile:after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 35%,rgba(16,42,67,.86) 100%); pointer-events:none; }
+  .material-feature:hover img,.material-tile:hover img { transform:scale(1.06); filter:saturate(1.12); }
+  .material-caption { position:absolute; z-index:1; left:28px; right:28px; bottom:25px; }
+  .material-caption small { color:var(--yellow); font:700 .68rem monospace; letter-spacing:.15em; }
+  .material-caption h3 { color:#fff; font-size:clamp(1.7rem,3vw,2.5rem); letter-spacing:-.06em; line-height:1; margin:9px 0 0; }
+  .material-caption p { color:rgba(255,255,255,.78); font-size:.85rem; margin:10px 0 0; max-width:380px; }
+  .material-grid { display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:14px; }
+  .material-tile { position:relative; min-height:220px; overflow:hidden; background:var(--mint); color:var(--ink-deep); }
+  .material-tile:after { background:linear-gradient(180deg,transparent 30%,rgba(16,42,67,.68) 100%); }
+  .material-tile figcaption { position:absolute; z-index:1; left:17px; right:17px; bottom:15px; color:#fff; font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; font-size:.98rem; }
+  .material-tile figcaption span { display:block; color:rgba(255,255,255,.76); font:600 .67rem "Aptos","Segoe UI",sans-serif; letter-spacing:.04em; margin-top:3px; }
+  .material-story-heading { display:flex; justify-content:space-between; align-items:end; gap:30px; margin-top:92px; }
+  .material-story-heading h2 { color:var(--ink-deep); font-size:clamp(2rem,4vw,3.25rem); letter-spacing:-.075em; line-height:.95; margin:10px 0 0; }
+  .material-story-heading p { color:var(--slate); font-size:.92rem; line-height:1.6; max-width:330px; margin:0; }
+  .reviews { margin-top:94px; padding:34px; background:var(--ink-deep); color:#fff; position:relative; overflow:hidden; }
+  .reviews:before { content:"“"; position:absolute; top:-52px; right:22px; color:rgba(244,201,93,.16); font:900 15rem/1 Georgia,serif; }
+  .reviews-heading { position:relative; z-index:1; display:flex; align-items:end; justify-content:space-between; gap:30px; margin-bottom:30px; }
+  .reviews-heading .kicker { color:var(--yellow); }
+  .reviews-heading .kicker:before { background:var(--yellow); }
+  .reviews-heading h2 { color:#fff; font-size:clamp(2rem,4vw,3.1rem); letter-spacing:-.075em; line-height:.95; margin:10px 0 0; }
+  .rating-summary { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,.75); font-size:.77rem; text-align:right; white-space:nowrap; }
+  .rating-summary strong { color:var(--yellow); font:800 2.2rem/1 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; }
+  .stars { color:var(--yellow); font-size:.95rem; letter-spacing:.16em; line-height:1; }
+  .reviews-grid { position:relative; z-index:1; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .review-card { min-height:222px; display:flex; flex-direction:column; justify-content:space-between; padding:20px; background:#173b58; border:1px solid rgba(255,255,255,.12); transition:transform .25s ease, background .25s ease; }
+  .review-card:hover { transform:translateY(-7px); background:#1c496a; }
+  .review-card blockquote { color:rgba(255,255,255,.9); font-size:.9rem; line-height:1.55; margin:15px 0 24px; }
+  .review-card blockquote:before { content:"“"; color:var(--orange); font:900 2rem/0 Georgia,serif; margin-right:3px; vertical-align:-.3em; }
+  .review-byline { display:flex; align-items:center; gap:10px; }
+  .review-avatar { display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--yellow); color:var(--ink-deep); font:800 .7rem/1 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; }
+  .review-name { color:#fff; font:700 .76rem/1.2 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; }
+  .review-role { color:rgba(255,255,255,.55); display:block; font:500 .65rem/1.4 "Aptos","Segoe UI",sans-serif; margin-top:2px; }
+  .section { padding:92px 0 20px; }
+  .section-heading { display:flex; justify-content:space-between; gap:30px; align-items:end; margin-bottom:30px; }
+  .section-heading h2 { color:var(--ink-deep); font-size:clamp(2rem,4vw,3.25rem); letter-spacing:-.075em; line-height:.95; margin:10px 0 0; }
+  .section-heading p { color:var(--slate); font-size:.92rem; line-height:1.6; max-width:330px; margin:0; }
+  .category-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .category { min-height:178px; display:flex; flex-direction:column; justify-content:space-between; padding:22px; border:1px solid var(--line); background:var(--cream); color:var(--ink-deep); text-decoration:none; }
+  .category:hover { border-color:var(--orange); box-shadow:0 12px 24px rgba(16,42,67,.12); }
+  .category:nth-child(2) { background:var(--mint); }
+  .category:nth-child(3) { background:var(--yellow); }
+  .category:nth-child(4) { background:var(--ink-deep); color:#fff; }
+  .category i { display:inline-block; font-style:normal; font-size:1.5rem; transition:transform .25s ease; }
+  .category:hover i { transform:rotate(-8deg) scale(1.18); }
+  .category strong { font-size:1.04rem; }
+  .category small { display:block; font-size:.77rem; opacity:.7; margin-top:5px; }
+  .category em { align-self:flex-end; font-size:1.3rem; font-style:normal; }
+  .steps { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--line); }
+  .step { padding:25px 26px 18px 0; border-right:1px solid var(--line); margin-right:26px; }
+  .step:last-child { border-right:0; margin-right:0; }
+  .step b { color:var(--orange); font:800 .75rem monospace; }
+  .step h3 { color:var(--ink-deep); font-size:1.3rem; margin:18px 0 9px; transition:color .2s ease, transform .2s ease; }
+  .step:hover h3 { color:var(--orange); transform:translateX(5px); }
+  .step p { color:var(--slate); font-size:.88rem; line-height:1.6; margin:0; }
+  .home-footer { display:flex; justify-content:space-between; gap:20px; align-items:center; border-top:1px solid var(--line); color:var(--slate); font-size:.78rem; margin-top:90px; padding-top:22px; }
+  .home-footer a { color:var(--ink-deep); font-weight:800; text-decoration:none; }
+  .home-footer a:hover { color:var(--orange); }
+  @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; } }
+  @media (max-width:800px) { .hero { grid-template-columns:1fr; padding:52px 0 66px; } .hero-visual { min-height:390px; } .proof { grid-template-columns:1fr; gap:18px; } .proof p { max-width:480px; } .category-grid { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:800px) { .material-story { grid-template-columns:1fr; } .material-feature { min-height:390px; } .material-grid { min-height:430px; } .material-story-heading { display:block; } .material-story-heading p { margin-top:17px; } .reviews-grid { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px) { .shell { padding:18px 17px 30px; } .top nav { gap:9px; font-size:.78rem; } .hero { padding-top:42px; } h1 { font-size:clamp(3rem,15vw,4.5rem); } .hero-meta { gap:13px; } .hero-visual { min-height:310px; } .blueprint { inset:16px 0 0 10px; box-shadow:10px 13px 0 var(--mint); } .floating-note { left:-2px; bottom:20px; } .proof-list { grid-template-columns:1fr; gap:10px; } .category-grid,.steps { grid-template-columns:1fr; } .step { border-right:0; border-bottom:1px solid var(--line); margin:0; padding:22px 0; } .step:last-child { border-bottom:0; } .section-heading { display:block; } .section-heading p { margin-top:17px; } .home-footer { align-items:flex-start; flex-direction:column; margin-top:60px; } .material-grid { grid-template-columns:1fr 1fr; gap:8px; min-height:310px; } .material-feature { min-height:330px; } .material-caption { left:18px; right:18px; bottom:18px; } .material-caption h3 { font-size:1.55rem; } .material-tile { min-height:150px; } .material-tile figcaption { left:12px; right:12px; bottom:11px; font-size:.82rem; } .reviews { margin-top:62px; padding:24px 18px; } .reviews-heading { align-items:flex-start; flex-direction:column; gap:18px; } .rating-summary { text-align:left; } .reviews-grid { grid-template-columns:1fr; } .review-card { min-height:190px; } }
 </style>
-<section class="entry" aria-labelledby="entry-title">
-  <p class="entry__eyebrow">Philippine construction procurement</p>
-  <div class="entry__grid">
+
+<div class="home">
+  <div class="parallax-backdrop" aria-hidden="true"><span class="parallax-orb parallax-orb--orange"></span><span class="parallax-orb parallax-orb--yellow"></span><span class="parallax-orb parallax-orb--mint"></span></div>
+  <div class="tool-field" aria-hidden="true"><span class="tool-one">⚒</span><span class="tool-two">⌁</span><span class="tool-three">⚙</span><span class="tool-four">▱</span><span class="tool-five">✦</span></div>
+  <section class="hero" aria-labelledby="hero-title">
     <div>
-      <h1 id="entry-title">The practical way to source what your project needs.</h1>
-      <p class="entry__lede">BUILTASUPPLY connects project teams with approved suppliers for clear product discovery, dependable ordering, and accountable supply operations.</p>
-      <div class="entry__actions">
-        <a class="button" href="{% url 'shop-home' %}">Browse Supplies</a>
-        <a class="button secondary" href="{% url 'accounts:login' %}">Login</a>
-        <a class="button secondary" href="{% url 'accounts:register' %}">Register</a>
+      <span class="kicker">Construction supply, made clear</span>
+      <h1 id="hero-title">Build the next thing well.</h1>
+      <p class="hero-copy">Find dependable materials, compare with confidence, and keep every project moving — from first footing to final finish.</p>
+      <div class="hero-actions">
+        <a class="button" href="{% url 'shop-home' %}">Explore supplies <span aria-hidden="true">↗</span></a>
+        <a class="button secondary" href="{% url 'accounts:register' %}">Create an account</a>
+      </div>
+      <div class="hero-meta" aria-label="Marketplace highlights"><div><strong>01</strong>Curated catalog</div><div><strong>02</strong>Clear ordering</div><div><strong>03</strong>Local-first</div></div>
+    </div>
+    <div class="hero-visual" aria-label="Blueprint illustration of a project in progress"><div class="blueprint"><div class="plan-card"><span class="plan-label">SITE PLAN / MATERIAL FLOW</span><span class="plan-number">04</span></div></div><div class="floating-note">Ready when you are <span>Source smarter. Build better.</span></div></div>
+  </section>
+
+  <section class="proof" aria-label="Why use Builtasupply"><p><strong>Designed for the real work</strong>A calmer way to source the everyday essentials behind ambitious projects.</p><div class="proof-list"><span>Verified suppliers</span><span>PHP pricing</span><span>Reliable fulfillment</span></div></section>
+
+  <section aria-labelledby="material-story-title">
+    <div class="material-story-heading"><div><span class="kicker">A closer look</span><h2 id="material-story-title">Good work starts with good stock.</h2></div><p>From the shelf to the site, see the materials and systems that keep projects moving.</p></div>
+    <div class="material-story">
+      <figure class="material-feature"><img src="{% static 'core/images/landing/materials-sheets.jpg' %}" alt="Colorful sheets of construction material stacked on warehouse shelves"><figcaption class="material-caption"><small>THE MATERIAL LIBRARY</small><h3>Color, texture, and the right piece for the job.</h3><p>Discover supplies with the confidence that comes from seeing what you’re working with.</p></figcaption></figure>
+      <div class="material-grid">
+        <figure class="material-tile"><img src="{% static 'core/images/landing/organized-stock.jpg' %}" alt="Organized colorful stock arranged in store compartments"><figcaption>Find it faster<span>Organized stock, less searching</span></figcaption></figure>
+        <figure class="material-tile"><img src="{% static 'core/images/landing/cable-reels.jpg' %}" alt="Cable reels stored on yellow warehouse shelving"><figcaption>Built to last<span>Everyday essentials, ready to go</span></figcaption></figure>
+        <figure class="material-tile"><img src="{% static 'core/images/landing/ready-to-ship.jpg' %}" alt="Cardboard boxes prepared for shipment"><figcaption>Ready when you are<span>From cart to doorstep</span></figcaption></figure>
+        <figure class="material-tile"><img src="{% static 'core/images/landing/field-cable.jpg' %}" alt="Large orange cable reels outdoors"><figcaption>Made for the field<span>Supplies that move with the work</span></figcaption></figure>
       </div>
     </div>
-    <p class="entry__note">Supplier enrollment and operational administration are available only after secure sign-in and authorization.</p>
-  </div>
-  <div class="entry__band" aria-label="BUILTASUPPLY service principles">
-    <div><strong>Approved supply</strong><span>Products are reviewed before purchase.</span></div>
-    <div><strong>Order clarity</strong><span>One checkout, supplier-specific fulfillment.</span></div>
-    <div><strong>PHP by default</strong><span>Built for the Philippine market.</span></div>
-  </div>
-</section>
-<p class="entry__footer">Independent procurement marketplace for construction and project supply.</p>
+  </section>
+
+  <section class="reviews" aria-labelledby="reviews-title">
+    <div class="reviews-heading"><div><span class="kicker">From the project floor</span><h2 id="reviews-title">Good supplies. Better momentum.</h2></div><div class="rating-summary"><strong>4.9</strong><div><div class="stars" aria-label="Rated 4.9 out of 5 stars">★★★★★</div><span>Trusted by project teams</span></div></div></div>
+    <div class="reviews-grid">
+      <article class="review-card"><div><div class="stars" aria-label="5 out of 5 stars">★★★★★</div><blockquote>It feels like someone finally organized the supply run for us.</blockquote></div><div class="review-byline"><span class="review-avatar" aria-hidden="true">DM</span><div class="review-name">Domeld Manangan<span class="review-role">Project coordinator</span></div></div></article>
+      <article class="review-card"><div><div class="stars" aria-label="5 out of 5 stars">★★★★★</div><blockquote>Clear product choices, straightforward ordering, and no wasted time.</blockquote></div><div class="review-byline"><span class="review-avatar" aria-hidden="true">AT</span><div class="review-name">Arvin Tumbagahon<span class="review-role">Site operations</span></div></div></article>
+      <article class="review-card"><div><div class="stars" aria-label="5 out of 5 stars">★★★★★</div><blockquote>The little details make the whole buying experience feel dependable.</blockquote></div><div class="review-byline"><span class="review-avatar" aria-hidden="true">DH</span><div class="review-name">Dale Hurst<span class="review-role">Build partner</span></div></div></article>
+      <article class="review-card"><div><div class="stars" aria-label="5 out of 5 stars">★★★★★</div><blockquote>A practical marketplace that keeps the team moving in the right direction.</blockquote></div><div class="review-byline"><span class="review-avatar" aria-hidden="true">FD</span><div class="review-name">Francis Darr<span class="review-role">Procurement lead</span></div></div></article>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="categories-title"><div class="section-heading"><div><span class="kicker">Start somewhere useful</span><h2 id="categories-title">Materials for every milestone.</h2></div><p>Whether you’re laying foundations or adding the finishing touch, find the right supply for the work ahead.</p></div><div class="category-grid">
+    <a class="category" href="{% url 'shop-home' %}"><i>▧</i><div><strong>Structural</strong><small>Core materials &amp; hardware</small></div><em>↗</em></a>
+    <a class="category" href="{% url 'shop-home' %}"><i>⌁</i><div><strong>Electrical</strong><small>Power, light &amp; connection</small></div><em>↗</em></a>
+    <a class="category" href="{% url 'shop-home' %}"><i>◫</i><div><strong>Finishing</strong><small>Details that make a space</small></div><em>↗</em></a>
+    <a class="category" href="{% url 'shop-home' %}"><i>＋</i><div><strong>Browse all</strong><small>See the full catalog</small></div><em>↗</em></a>
+  </div></section>
+
+  <section class="section" aria-labelledby="process-title"><div class="section-heading"><div><span class="kicker">A better way forward</span><h2 id="process-title">From plan to progress.</h2></div><p>Less chasing. More building. Builtasupply keeps the essentials of procurement in one practical place.</p></div><div class="steps">
+    <article class="step"><b>01 / DISCOVER</b><h3>Find what fits</h3><p>Browse a focused marketplace built around the products project teams use every day.</p></article>
+    <article class="step"><b>02 / DECIDE</b><h3>Order with clarity</h3><p>See straightforward pricing and product details before anything goes in your cart.</p></article>
+    <article class="step"><b>03 / DELIVER</b><h3>Keep work moving</h3><p>Track the order journey and stay focused on the work that matters on site.</p></article>
+  </div></section>
+
+  <footer class="home-footer"><span>BUILTASUPPLY / Independent procurement for construction.</span><span><a href="{% url 'about' %}">About us</a> · <a href="{% url 'accounts:login' %}">Already have an account? Sign in →</a></span></footer>
+</div>
+<script>
+  (() => {
+    const page = document.querySelector('.home');
+    if (!page || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let ticking = false;
+    const updateParallax = () => {
+      const scroll = window.scrollY || 0;
+      page.style.setProperty('--parallax-ring', `${scroll * 0.07}px`);
+      page.style.setProperty('--parallax-orb', `${scroll * -0.13}px`);
+      page.style.setProperty('--parallax-grid', `${(scroll * -0.045) % 48}px`);
+      page.style.setProperty('--parallax-tools', `${scroll * -0.16}px`);
+      ticking = false;
+    };
+    window.addEventListener('scroll', () => {
+      if (!ticking) { window.requestAnimationFrame(updateParallax); ticking = true; }
+    }, { passive:true });
+    updateParallax();
+  })();
+</script>
 {% endblock %}

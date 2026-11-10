@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}About us | BUILTASUPPLY{% endblock %}
+{% block content %}
+<style>
+  :root { --about-navy:#102a43; --about-orange:#f26b38; --about-yellow:#f4c95d; --about-mint:#b8d8cf; --about-paper:#f6f4ef; --about-line:#d9dfdc; --about-muted:#627585; }
+  body { background:var(--about-paper); }
+  .shell { max-width:1240px; padding:22px 30px 50px; }
+  .top { border-bottom:0; padding:6px 0 18px; }
+  .brand { color:var(--about-navy); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:.16em; }
+  .about-page { position:relative; isolation:isolate; overflow:hidden; }
+  .about-page > *:not(.about-parallax) { position:relative; z-index:1; }
+  @keyframes about-rise { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes about-logo-float { 0%,100% { transform:translateY(0) rotate(-2deg); } 50% { transform:translateY(-10px) rotate(2deg); } }
+  @keyframes about-pulse { 0%,100% { opacity:.55; transform:scale(1); } 50% { opacity:.95; transform:scale(1.04); } }
+  @keyframes panorama-loop { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+  .about-parallax { position:absolute; z-index:0; inset:0; overflow:hidden; pointer-events:none; background-image:linear-gradient(rgba(16,42,67,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(16,42,67,.035) 1px,transparent 1px); background-position:0 var(--about-grid,0px),var(--about-grid,0px) 0; background-size:46px 46px; transition:background-position .2s linear; }
+  .about-parallax:before { content:""; position:absolute; top:3%; right:-12%; width:48vw; height:48vw; min-width:420px; min-height:420px; border:1px solid rgba(242,107,56,.13); border-radius:50%; transform:translate3d(0,var(--about-ring,0px),0); transition:transform .15s linear; }
+  .about-parallax:after { content:""; position:absolute; top:11%; right:-8%; width:39vw; height:39vw; min-width:340px; min-height:340px; border:1px dashed rgba(16,42,67,.13); border-radius:50%; transform:translate3d(0,calc(var(--about-ring,0px) * -1.3),0); transition:transform .15s linear; }
+  .about-orb { position:absolute; display:block; border-radius:50%; opacity:.62; transform:translate3d(0,var(--about-orb,0px),0); transition:transform .18s linear; }
+  .about-orb--orange { top:28%; left:-100px; width:220px; height:220px; background:radial-gradient(circle,rgba(242,107,56,.16),rgba(242,107,56,0) 70%); }
+  .about-orb--yellow { top:58%; right:-90px; width:230px; height:230px; background:radial-gradient(circle,rgba(244,201,93,.2),rgba(244,201,93,0) 70%); }
+  .about-orb--mint { top:87%; left:16%; width:280px; height:280px; background:radial-gradient(circle,rgba(184,216,207,.27),rgba(184,216,207,0) 70%); }
+  .about-back { display:inline-flex; align-items:center; gap:7px; color:var(--about-muted); font:800 .68rem monospace; letter-spacing:.05em; text-decoration:none; text-transform:uppercase; margin:10px 0 6px; transition:color .2s ease,transform .2s ease; }
+  .about-back:hover { color:var(--about-orange); transform:translateX(-3px); }
+  .about-hero { position:relative; display:grid; grid-template-columns:1fr .85fr; gap:50px; align-items:center; min-height:510px; padding:72px 0 84px; border-bottom:1px solid var(--about-line); }
+  .about-hero:before { content:"ABOUT / 01"; position:absolute; top:30px; right:0; color:var(--about-orange); font:700 .66rem monospace; letter-spacing:.16em; }
+  .about-kicker { display:inline-flex; align-items:center; gap:9px; color:var(--about-orange); font:800 .72rem monospace; letter-spacing:.13em; text-transform:uppercase; }
+  .about-kicker:before { content:""; width:27px; height:2px; background:var(--about-orange); }
+  .about-hero > div:first-child { animation:about-rise .7s ease both; }
+  .about-hero h1 { color:var(--about-navy); font:700 clamp(3.5rem,7vw,6.5rem)/.88 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.09em; margin:20px 0 25px; max-width:720px; }
+  .about-hero p { color:var(--about-muted); font-size:1.08rem; line-height:1.7; max-width:570px; margin:0; }
+  .about-logo-stage { position:relative; min-height:390px; display:grid; place-items:center; background:var(--about-navy); overflow:hidden; box-shadow:18px 18px 0 var(--about-mint); animation:about-rise .8s .12s ease both; transition:box-shadow .3s ease,transform .3s ease; }
+  .about-logo-stage:hover { transform:translateY(-5px); box-shadow:23px 23px 0 var(--about-mint); }
+  .about-logo-stage:before { content:""; position:absolute; inset:-30%; background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px); background-size:34px 34px; transform:rotate(-8deg); animation:about-pulse 5s ease-in-out infinite; }
+  .about-logo-stage:after { content:"BUILTASUPPLY / BUILT FOR THE WORK AHEAD"; position:absolute; bottom:20px; left:22px; color:rgba(255,255,255,.55); font:700 .6rem monospace; letter-spacing:.12em; }
+  .about-logo { position:relative; z-index:1; width:58%; max-width:270px; mix-blend-mode:screen; filter:invert(1); animation:about-logo-float 5s ease-in-out infinite; transition:filter .3s ease; }
+  .about-logo-stage:hover .about-logo { filter:invert(1) drop-shadow(0 12px 18px rgba(244,201,93,.28)); }
+  .about-intro { display:grid; grid-template-columns:.78fr 1.22fr; gap:70px; align-items:start; padding:88px 0; }
+  .about-intro h2,.about-section-heading h2 { color:var(--about-navy); font:700 clamp(2.3rem,4vw,4rem)/.94 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.08em; margin:12px 0 0; }
+  .about-intro-copy { color:var(--about-muted); font-size:1rem; line-height:1.8; }
+  .about-intro-copy p { margin:0 0 18px; }
+  .about-stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:35px; }
+  .about-stat { border-top:2px solid var(--about-orange); padding-top:12px; transition:transform .22s ease,border-color .22s ease; }
+  .about-stat:hover { border-color:var(--about-navy); transform:translateY(-5px); }
+  .about-stat strong { display:block; color:var(--about-navy); font:700 2rem "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.06em; }
+  .about-stat span { color:var(--about-muted); font-size:.72rem; }
+  .supply-panorama { display:grid; grid-template-columns:.68fr 1.32fr; gap:34px; align-items:center; border-top:1px solid var(--about-line); border-bottom:1px solid var(--about-line); padding:74px 0; margin-bottom:88px; }
+  .supply-panorama-copy { position:relative; z-index:1; }
+  .supply-panorama-copy h2 { color:var(--about-navy); font:700 clamp(2.3rem,4vw,4rem)/.94 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.08em; margin:12px 0 18px; }
+  .supply-panorama-copy p { color:var(--about-muted); font-size:.96rem; line-height:1.75; margin:0; max-width:350px; }
+  .supply-panorama-note { display:flex; align-items:center; gap:10px; color:var(--about-orange); font:700 .65rem monospace; letter-spacing:.1em; margin-top:28px; text-transform:uppercase; }
+  .supply-panorama-note:before { content:""; width:28px; height:2px; background:var(--about-orange); }
+  .panorama-window { position:relative; overflow:hidden; min-height:300px; background:var(--about-navy); box-shadow:14px 14px 0 var(--about-mint); }
+  .panorama-window:before,.panorama-window:after { content:""; position:absolute; z-index:2; top:0; bottom:0; width:12%; pointer-events:none; }
+  .panorama-window:before { left:0; background:linear-gradient(90deg,var(--about-navy),transparent); }
+  .panorama-window:after { right:0; background:linear-gradient(270deg,var(--about-navy),transparent); }
+  .panorama-track { display:flex; width:max-content; animation:panorama-loop 38s linear infinite; }
+  .panorama-track:hover { animation-play-state:paused; }
+  .panorama-frame { flex:0 0 250px; height:300px; overflow:hidden; border-right:4px solid var(--about-paper); }
+  .panorama-frame img { width:100%; height:100%; display:block; object-fit:cover; filter:saturate(.9) contrast(1.05); transition:transform .5s ease,filter .4s ease; }
+  .panorama-frame:hover img { transform:scale(1.08); filter:saturate(1.16) contrast(1.07); }
+  .about-section-heading { display:flex; align-items:end; justify-content:space-between; gap:30px; margin-bottom:32px; }
+  .about-section-heading p { color:var(--about-muted); font-size:.92rem; line-height:1.6; max-width:320px; margin:0; }
+  .team-section { padding:0 0 90px; }
+  .team-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .team-card { position:relative; min-height:355px; display:grid; grid-template-rows:1fr auto; overflow:hidden; padding:0; background:var(--about-navy); color:#fff; transition:transform .25s ease, box-shadow .25s ease; }
+  .team-card:nth-child(2) { background:var(--about-orange); }
+  .team-card:nth-child(3) { background:var(--about-yellow); color:var(--about-navy); }
+  .team-card:nth-child(4) { background:var(--about-mint); color:var(--about-navy); }
+  .team-card:hover { transform:translateY(-8px); box-shadow:0 18px 28px rgba(16,42,67,.14); }
+  .team-card:before { content:""; position:absolute; width:180px; height:180px; top:-64px; right:-70px; border:1px solid rgba(16,42,67,.28); border-radius:50%; opacity:.75; box-shadow:0 0 0 20px rgba(16,42,67,.05),0 0 0 42px rgba(16,42,67,.035); z-index:1; pointer-events:none; }
+  .team-photo { position:relative; z-index:0; grid-row:1; width:100%; height:100%; min-height:0; object-fit:cover; object-position:center top; background:#e9e6df; filter:saturate(.96) contrast(1.04); transition:transform .45s ease,filter .35s ease; }
+  .team-card:hover .team-photo { transform:scale(1.04); filter:saturate(1.08) contrast(1.08); }
+  .team-logo { position:absolute; z-index:2; top:18px; left:18px; width:38px; height:38px; padding:3px; object-fit:contain; border-radius:7px; background:rgba(255,255,255,.9); }
+  .team-number { position:absolute; z-index:2; top:20px; right:18px; color:var(--about-navy); font:700 .65rem monospace; letter-spacing:.12em; opacity:.72; }
+  .team-info { position:relative; z-index:2; grid-row:2; min-height:112px; padding:18px 20px 20px; background:var(--about-navy); color:#fff; }
+  .team-card:nth-child(2) .team-info { background:#df572e; color:#fff; }
+  .team-card:nth-child(3) .team-info { background:var(--about-yellow); color:var(--about-navy); }
+  .team-card:nth-child(4) .team-info { background:var(--about-mint); color:var(--about-navy); }
+  .team-name { display:block; font:700 1.16rem/1.05 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.04em; }
+  .team-tag { display:block; font-size:.77rem; font-weight:700; margin-top:8px; }
+  .team-role { display:block; font-size:.72rem; opacity:.72; margin-top:3px; }
+  .values-section { display:grid; grid-template-columns:.8fr 1.2fr; gap:70px; align-items:start; border-top:1px solid var(--about-line); padding:88px 0; }
+  .values-copy p { color:var(--about-muted); font-size:1rem; line-height:1.75; max-width:390px; margin:22px 0 0; }
+  .values-list { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .value-card { min-height:150px; padding:21px; border:1px solid var(--about-line); background:#fff; transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease; }
+  .value-card:hover { transform:translateY(-7px); border-color:var(--about-orange); box-shadow:0 14px 24px rgba(16,42,67,.1); }
+  .value-card:nth-child(2) { background:var(--about-mint); }
+  .value-card:nth-child(3) { background:var(--about-yellow); }
+  .value-card:nth-child(4) { background:var(--about-navy); color:#fff; }
+  .value-card b { display:block; color:var(--about-orange); font:700 .68rem monospace; letter-spacing:.12em; }
+  .value-card h3 { font:700 1.18rem "Bahnschrift SemiBold","Trebuchet MS",sans-serif; margin:24px 0 5px; }
+  .value-card p { font-size:.76rem; line-height:1.5; opacity:.72; margin:0; }
+  .about-cta { display:flex; justify-content:space-between; align-items:center; gap:30px; padding:33px; background:var(--about-orange); color:#fff; }
+  .about-cta h2 { font:700 clamp(1.8rem,3vw,2.8rem)/.95 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.07em; margin:0; }
+  .about-cta p { color:rgba(255,255,255,.78); font-size:.82rem; margin:9px 0 0; }
+  .about-cta .button { margin:0; border-radius:999px; background:var(--about-navy); }
+  .about-cta .button:hover { background:#173b58; transform:translateY(-3px) scale(1.02); box-shadow:0 10px 20px rgba(16,42,67,.18); }
+  @media (max-width:850px) { .about-hero { grid-template-columns:1fr; padding-top:55px; } .about-logo-stage { min-height:320px; } .about-intro,.values-section,.supply-panorama { grid-template-columns:1fr; gap:30px; } .supply-panorama-copy p { max-width:570px; } .team-grid { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px) { .shell { padding:18px 17px 35px; } .about-hero h1 { font-size:clamp(3rem,15vw,4.6rem); } .about-hero { padding:50px 0 58px; } .about-intro { padding:62px 0; } .about-stat-row { gap:8px; } .about-stat strong { font-size:1.5rem; } .about-section-heading { display:block; } .about-section-heading p { margin-top:17px; } .supply-panorama { padding:58px 0; margin-bottom:62px; } .panorama-window { min-height:220px; box-shadow:9px 9px 0 var(--about-mint); } .panorama-frame { flex-basis:190px; height:220px; } .team-grid { grid-template-columns:1fr; } .team-card { min-height:260px; } .values-section { padding:62px 0; } .values-list { grid-template-columns:1fr; } .about-cta { align-items:flex-start; flex-direction:column; padding:25px; } }
+  @media (prefers-reduced-motion:reduce) { .about-hero > div:first-child,.about-logo-stage,.about-logo-stage:before,.about-logo,.team-card,.about-cta .button,.panorama-track { animation:none; transition:none; } }
+</style>
+
+<div class="about-page">
+  <div class="about-parallax" aria-hidden="true"><span class="about-orb about-orb--orange"></span><span class="about-orb about-orb--yellow"></span><span class="about-orb about-orb--mint"></span></div>
+  <a class="about-back" href="/" aria-label="Back to the Builtasupply home page">← Back to home</a>
+  <section class="about-hero" aria-labelledby="about-title"><div><span class="about-kicker">The people behind the platform</span><h1 id="about-title">Better supply. Better building.</h1><p>BUILTASUPPLY is a practical procurement marketplace for construction teams. We make it easier to discover dependable supplies, order with clarity, and keep every project moving.</p></div><div class="about-logo-stage"><img class="about-logo" src="{% static 'core/images/brand/builtasupply-main.png' %}" alt="BUILTASUPPLY logo"></div></section>
+
+  <section class="about-intro"><div><span class="about-kicker">Why we exist</span><h2>Procurement should feel like progress.</h2></div><div class="about-intro-copy"><p>Every build has enough moving parts. Finding the right materials shouldn’t add more friction. BUILTASUPPLY brings product discovery, supplier relationships, and order visibility into one clear experience designed for the realities of project work.</p><p>We believe good tools should stay out of the way: easy to understand, dependable under pressure, and built around people who need to get things done.</p><div class="about-stat-row"><div class="about-stat"><strong>01</strong><span>Clearer choices</span></div><div class="about-stat"><strong>02</strong><span>Smarter sourcing</span></div><div class="about-stat"><strong>03</strong><span>Stronger momentum</span></div></div></div></section>
+
+  <section class="supply-panorama" aria-labelledby="supply-panorama-title"><div class="supply-panorama-copy"><span class="about-kicker">The supply in motion</span><h2 id="supply-panorama-title">From yard to site, always moving.</h2><p>Behind every confident build is a well-organized flow of materials. Explore the places, products, and people that keep the work moving forward.</p><span class="supply-panorama-note">A living view of the supply chain</span></div><div class="panorama-window" aria-label="A continuously moving panorama of construction materials"><div class="panorama-track"><figure class="panorama-frame"><img src="{% static 'core/images/about/warehouse-yard.jpg' %}" alt="Colorful construction stock in a warehouse yard"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/cable-reels-yard.jpg' %}" alt="Cable reels stored on outdoor racks"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/delivery-loaders.jpg' %}" alt="Hand carts and bundled construction supplies"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/organized-stock.jpg' %}" alt="Organized boxed materials on warehouse shelves"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/cement-stock.jpg' %}" alt="Bags of cement stacked in a storage area"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/warehouse-yard.jpg' %}" alt="Colorful construction stock in a warehouse yard" aria-hidden="true"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/cable-reels-yard.jpg' %}" alt="Cable reels stored on outdoor racks" aria-hidden="true"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/delivery-loaders.jpg' %}" alt="Hand carts and bundled construction supplies" aria-hidden="true"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/organized-stock.jpg' %}" alt="Organized boxed materials on warehouse shelves" aria-hidden="true"></figure><figure class="panorama-frame"><img src="{% static 'core/images/about/cement-stock.jpg' %}" alt="Bags of cement stacked in a storage area" aria-hidden="true"></figure></div></div></section>
+
+  <section class="team-section" aria-labelledby="team-title"><div class="about-section-heading"><div><span class="about-kicker">Team QuadraX</span><h2 id="team-title">Small team. Big build energy.</h2></div><p>A four-person crew bringing design, development, and a lot of personality to the work.</p></div><div class="team-grid">
+    <article class="team-card"><img class="team-photo" src="{% static 'core/images/team/domeld.png' %}" alt="Domeld Manangan"><img class="team-logo" src="{% static 'core/images/brand/quadrax-main.png' %}" alt="QuadraX logo"><span class="team-number">01 / 04</span><div class="team-info"><strong class="team-name">Domeld Manangan</strong><span class="team-tag">BSITBA | The LegenX</span><span class="team-role">UI/UX Designer</span></div></article>
+    <article class="team-card"><img class="team-photo" src="{% static 'core/images/team/arvin.png' %}" alt="Arvin Tumbagahon"><img class="team-logo" src="{% static 'core/images/brand/quadrax-main.png' %}" alt="QuadraX logo"><span class="team-number">02 / 04</span><div class="team-info"><strong class="team-name">Arvin Tumbagahon</strong><span class="team-tag">BSITBA | The Goat</span><span class="team-role">Lead Developer</span></div></article>
+    <article class="team-card"><img class="team-photo" src="{% static 'core/images/team/dale.png' %}" alt="Dale Hurst"><img class="team-logo" src="{% static 'core/images/brand/quadrax-main.png' %}" alt="QuadraX logo"><span class="team-number">03 / 04</span><div class="team-info"><strong class="team-name">Dale Hurst</strong><span class="team-tag">BSITBA | The Bombastic</span><span class="team-role">UI/UX Designer</span></div></article>
+    <article class="team-card"><img class="team-photo" src="{% static 'core/images/team/darr.png' %}" alt="Francis Darr"><img class="team-logo" src="{% static 'core/images/brand/quadrax-main.png' %}" alt="QuadraX logo"><span class="team-number">04 / 04</span><div class="team-info"><strong class="team-name">Francis Darr</strong><span class="team-tag">BSITBA | The Bang</span><span class="team-role">UI/UX Designer</span></div></article>
+  </div></section>
+
+  <section class="values-section"><div class="values-copy"><span class="about-kicker">The way we work</span><h2>Practical by nature. Ambitious by choice.</h2><p>Our north star is simple: make the complicated parts of building feel more human, more visible, and easier to move through.</p></div><div class="values-list"><article class="value-card"><b>01 / CLARITY</b><h3>Make it understandable.</h3><p>Good information turns a hard decision into a confident one.</p></article><article class="value-card"><b>02 / CRAFT</b><h3>Care about the details.</h3><p>The small interactions are what make a tool feel trustworthy.</p></article><article class="value-card"><b>03 / MOMENTUM</b><h3>Keep work moving.</h3><p>Every feature should help teams spend less time chasing and more time building.</p></article><article class="value-card"><b>04 / TEAMWORK</b><h3>Build it together.</h3><p>The best outcomes happen when every perspective has a place at the table.</p></article></div></section>
+
+  <section class="about-cta"><div><h2>Ready to build something that works?</h2><p>Explore the marketplace and find your next project essential.</p></div><a class="button" href="{% url 'shop-home' %}">Explore supplies ↗</a></section>
+</div>
+<script>
+  (() => {
+    const page = document.querySelector('.about-page');
+    if (!page || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let ticking = false;
+    const updateAboutParallax = () => {
+      const scroll = window.scrollY || 0;
+      page.style.setProperty('--about-ring', `${scroll * 0.07}px`);
+      page.style.setProperty('--about-orb', `${scroll * -0.12}px`);
+      page.style.setProperty('--about-grid', `${(scroll * -0.04) % 46}px`);
+      ticking = false;
+    };
+    window.addEventListener('scroll', () => {
+      if (!ticking) { window.requestAnimationFrame(updateAboutParallax); ticking = true; }
+    }, { passive:true });
+    updateAboutParallax();
+  })();
+</script>
+{% endblock %}

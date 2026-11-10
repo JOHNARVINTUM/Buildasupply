@@ -1,1 +1,94 @@
-{% extends 'base.html' %}{% block content %}<section class="panel"><div class="status">{{ kind|upper }} ACCOUNT</div><h1>Create your BUILTASUPPLY account</h1>{% if kind == 'Supplier' %}<p class="muted">Provide account and business information. Supplier selling access begins only after approval.</p>{% else %}<p class="muted">Create a customer account to browse and purchase supplies. Special membership is assigned separately to customer accounts.</p>{% endif %}<form method="post" data-registration-form>{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<label for="{{ field.id_for_label }}">{{ field.label }}{{ field }}{% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}{{ field.errors }}</label>{% endfor %}<button type="submit">Create account</button></form><p class="muted">Already have an account? <a href="{% url 'accounts:login' %}">Login</a></p></section><script>document.querySelector('[data-registration-form]')?.addEventListener('submit',function(){const b=this.querySelector('button[type=submit]');if(b&&this.checkValidity()){b.disabled=true;b.textContent='Creating your account…';}})</script>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}BUILTASUPPLY | Create your account{% endblock %}
+{% block content %}
+<style>
+  :root { --reg-navy:#102a43; --reg-orange:#f26b38; --reg-yellow:#f4c95d; --reg-mint:#b8d8cf; --reg-paper:#f6f4ef; --reg-line:#d9dfdc; --reg-muted:#657887; }
+  body { background:var(--reg-paper); }
+  .shell { max-width:1240px; padding:22px 30px 40px; }
+  body { overflow:hidden; }
+  body:has(.register-page) .shell { display:flex; flex-direction:column; height:100vh; max-width:1320px; overflow:hidden; padding-bottom:18px; }
+  .top { border-bottom:0; padding:6px 0 18px; }
+  .brand { color:var(--reg-navy); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:.16em; }
+  .top:after { content:""; position:absolute; left:0; right:0; top:0; height:4px; background:linear-gradient(90deg,var(--reg-orange) 0 28%,var(--reg-yellow) 28% 52%,var(--reg-mint) 52% 100%); }
+  .register-page { position:fixed; z-index:2; top:69px; bottom:18px; left:50%; transform:translateX(-50%); display:grid; grid-template-columns:minmax(330px,.86fr) minmax(500px,1.14fr); width:min(1260px,calc(100% - 60px)); min-height:0; height:auto; margin:0 auto; background:#fff; border:1px solid var(--reg-line); box-shadow:0 18px 45px rgba(16,42,67,.08); overflow:hidden; }
+  .register-page { border-radius:18px; }
+  @keyframes register-grid-drift { from { background-position:0 0,0 0; } to { background-position:34px 34px,-34px 0; } }
+  @keyframes register-glow-drift { 0%,100% { transform:translate3d(0,0,0) scale(1); opacity:.62; } 50% { transform:translate3d(25px,-18px,0) scale(1.08); opacity:.9; } }
+  @keyframes register-ring-drift { 0%,100% { transform:translate(0,0) rotate(0deg); } 50% { transform:translate(-18px,-12px) rotate(8deg); } }
+  .register-aside { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; min-height:0; padding:34px 38px; color:#fff; background:var(--reg-navy); }
+  .register-aside:before { content:""; position:absolute; inset:0; opacity:.16; background-image:linear-gradient(rgba(255,255,255,.45) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.45) 1px,transparent 1px); background-size:34px 34px; transform:rotate(-7deg) scale(1.2); animation:register-grid-drift 14s linear infinite; }
+  .register-aside:after { content:""; position:absolute; width:360px; height:360px; right:-160px; bottom:-90px; border:1px solid rgba(244,201,93,.65); border-radius:50%; box-shadow:0 0 0 28px rgba(244,201,93,.08),0 0 0 58px rgba(244,201,93,.06); animation:register-ring-drift 8s ease-in-out infinite; }
+  .register-aside > * { position:relative; z-index:1; }
+  .aside-label { color:var(--reg-yellow); font:700 .68rem monospace; letter-spacing:.16em; text-transform:uppercase; }
+  .register-aside h1 { max-width:410px; color:#fff; font:700 clamp(2.7rem,5vw,4.8rem)/.91 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.08em; margin:24px 0 18px; }
+  .aside-copy { color:rgba(255,255,255,.72); font-size:.96rem; line-height:1.65; max-width:360px; margin:0; }
+  .aside-image { position:absolute; z-index:0; right:-25px; bottom:65px; width:245px; height:185px; opacity:.5; transform:rotate(-9deg); border:8px solid rgba(255,255,255,.88); box-shadow:0 14px 25px rgba(0,0,0,.2); object-fit:cover; }
+  .aside-list { display:grid; gap:16px; max-width:290px; }
+  .aside-list div { display:flex; align-items:flex-start; gap:12px; color:rgba(255,255,255,.8); font-size:.78rem; line-height:1.4; }
+  .aside-list b { display:grid; place-items:center; flex:0 0 24px; height:24px; border-radius:50%; background:var(--reg-yellow); color:var(--reg-navy); font-size:.68rem; }
+  .register-form-wrap { position:relative; align-self:stretch; display:flex; flex-direction:column; justify-content:center; min-height:0; width:100%; max-height:100%; overflow:hidden; padding:30px clamp(28px,5vw,76px); }
+  .register-form-wrap:before { content:""; position:absolute; inset:-25%; z-index:0; pointer-events:none; background:radial-gradient(circle at 75% 15%,rgba(184,216,207,.34),transparent 28%),radial-gradient(circle at 15% 85%,rgba(244,201,93,.16),transparent 23%); animation:register-glow-drift 10s ease-in-out infinite; }
+  .register-form-wrap > * { position:relative; z-index:1; }
+  .back-home { align-self:flex-start; display:inline-flex; align-items:center; gap:7px; color:var(--reg-muted); font:800 .68rem monospace; letter-spacing:.05em; text-decoration:none; text-transform:uppercase; margin-bottom:22px; transition:color .2s ease, transform .2s ease; }
+  .back-home:hover { color:var(--reg-orange); transform:translateX(-3px); }
+  .form-intro { border-bottom:1px solid var(--reg-line); padding-bottom:24px; }
+  .form-kicker { color:var(--reg-orange); font:800 .7rem monospace; letter-spacing:.13em; text-transform:uppercase; }
+  .form-intro h2 { color:var(--reg-navy); font:700 clamp(2rem,4vw,3rem)/.98 "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.07em; margin:11px 0 10px; }
+  .form-intro p { color:var(--reg-muted); font-size:.9rem; line-height:1.6; margin:0; max-width:530px; }
+  .account-chip { display:inline-flex; align-items:center; gap:8px; margin-top:17px; padding:7px 10px; background:var(--reg-mint); color:var(--reg-navy); font:800 .68rem monospace; letter-spacing:.06em; text-transform:uppercase; }
+  .account-chip:before { content:""; width:7px; height:7px; border-radius:50%; background:var(--reg-orange); }
+  .form-errors { margin-top:20px; padding:12px 14px; border-left:3px solid #a12b2b; background:#fff0ed; color:#8c2828; font-size:.85rem; }
+  .registration-form { display:grid; grid-template-columns:1fr 1fr; column-gap:18px; margin-top:15px; }
+  .registration-form label { display:block; color:var(--reg-navy); font:700 .78rem "Bahnschrift SemiBold","Trebuchet MS",sans-serif; margin:17px 0 0; }
+  .registration-form input,.registration-form select,.registration-form textarea { display:block; width:100%; border:1px solid #c9d4d5; border-radius:7px; background:#fbfcfa; color:var(--reg-navy); font:inherit; margin-top:7px; padding:12px 13px; outline:none; transition:border-color .2s ease, box-shadow .2s ease, background .2s ease; }
+  .registration-form .terms-field { display:flex; align-items:flex-start; gap:8px; grid-column:1 / -1; color:var(--reg-navy); font:700 .73rem "Bahnschrift SemiBold","Trebuchet MS",sans-serif; line-height:1.35; margin-top:14px; }
+  .registration-form .terms-field input[type=checkbox] { flex:0 0 16px; width:16px; height:16px; margin:0; padding:0; accent-color:var(--reg-orange); }
+  .registration-form .terms-field .errorlist { flex-basis:100%; }
+  .registration-form input:focus,.registration-form select:focus,.registration-form textarea:focus { border-color:var(--reg-orange); background:#fff; box-shadow:0 0 0 4px rgba(242,107,56,.12); }
+  .registration-form label > .muted { display:block; color:var(--reg-muted); font-size:.73rem; font-weight:400; line-height:1.4; margin-top:6px; }
+  .registration-form .errorlist { color:#a12b2b; font-size:.75rem; font-weight:500; margin:6px 0 0; padding-left:18px; }
+  .registration-form > label:nth-of-type(7),.registration-form > .register-submit { grid-column:1 / -1; }
+  .register-submit { display:flex; align-items:center; justify-content:space-between; gap:20px; border-top:1px solid var(--reg-line); margin-top:17px; padding-top:17px; }
+  .register-submit button { margin:0; border-radius:999px; background:var(--reg-orange); padding:14px 23px; box-shadow:0 8px 16px rgba(242,107,56,.2); }
+  .register-submit button:hover { background:#d95529; transform:translateY(-2px); }
+  .login-link { color:var(--reg-muted); font-size:.8rem; }
+  .login-link a { color:var(--reg-navy); font-weight:800; text-decoration:none; }
+  .login-link a:hover { color:var(--reg-orange); }
+  @media (max-height:820px) and (min-width:801px) { .shell { padding-top:15px; } .top { padding-bottom:10px; } .register-aside { padding:24px 30px; } .register-aside h1 { font-size:clamp(2.35rem,4vw,3.8rem); margin:17px 0 13px; } .aside-list { gap:9px; } .register-form-wrap { padding-top:20px; padding-bottom:20px; } .form-intro { padding-bottom:15px; } .form-intro h2 { font-size:2.25rem; margin:7px 0; } .registration-form label { margin-top:10px; } .registration-form input,.registration-form select,.registration-form textarea { margin-top:4px; padding:8px 10px; } .register-submit { margin-top:11px; padding-top:11px; } }
+  @media (max-width:800px) { body { overflow:hidden; } body:has(.register-page) .shell { height:100vh; overflow:hidden; } .register-page { position:fixed; top:69px; bottom:18px; left:0; transform:none; grid-template-columns:1fr; flex:none; width:100%; height:auto; } .register-aside { display:none; } .register-form-wrap { align-self:center; max-height:100%; overflow:hidden; padding:25px 28px; } .registration-form { display:grid; grid-template-columns:1fr 1fr; column-gap:14px; } .registration-form > label:nth-of-type(7),.registration-form > .register-submit { grid-column:1 / -1; } }
+  @media (max-width:800px) and (min-width:561px) { .register-form-wrap { padding:17px 28px; } .form-intro { padding-bottom:12px; } .form-intro h2 { font-size:1.85rem; margin:5px 0; } .form-intro p { font-size:.76rem; line-height:1.3; } .account-chip { margin-top:8px; padding:6px 9px; font-size:.62rem; } .registration-form { margin-top:8px; } .registration-form label { font-size:.66rem; margin-top:6px; } .registration-form input,.registration-form select,.registration-form textarea { margin-top:4px; padding:7px 9px; font-size:.8rem; } .registration-form label > .muted { font-size:.58rem; line-height:1.25; margin-top:3px; } .registration-form .terms-field { font-size:.62rem; margin-top:8px; } .registration-form .terms-field input[type=checkbox] { flex-basis:15px; width:15px; height:15px; } .register-submit { margin-top:8px; padding-top:9px; } .register-submit button { padding:10px 14px; font-size:.78rem; } .login-link { font-size:.68rem; } }
+  @media (max-width:560px) { .shell { padding:18px 17px 30px; } .top nav { gap:9px; font-size:.78rem; } .register-page { top:61px; bottom:10px; border-radius:13px; } .register-form-wrap { padding:12px 18px; } .form-intro { padding-bottom:9px; } .form-intro h2 { font-size:1.55rem; margin:4px 0; } .form-intro p { font-size:.7rem; line-height:1.25; } .account-chip { margin-top:6px; padding:5px 8px; font-size:.58rem; } .registration-form { column-gap:10px; margin-top:5px; } .registration-form label { font-size:.62rem; margin-top:4px; } .registration-form input,.registration-form select,.registration-form textarea { margin-top:3px; padding:5px 7px; font-size:.76rem; } .registration-form label > .muted { font-size:.55rem; line-height:1.2; margin-top:3px; } .registration-form .terms-field { font-size:.58rem; margin-top:7px; } .registration-form .terms-field input[type=checkbox] { flex-basis:14px; width:14px; height:14px; } .register-submit { align-items:center; flex-direction:row; margin-top:5px; padding-top:6px; } .register-submit button { padding:8px 12px; font-size:.72rem; } .login-link { font-size:.62rem; } }
+  @media (prefers-reduced-motion: reduce) { .register-aside:before,.register-aside:after,.register-form-wrap:before { animation:none; } }
+</style>
+
+<main class="register-page">
+  <aside class="register-aside">
+    <div>
+      <span class="aside-label">Your next project starts here</span>
+      <h1>Make room for better building.</h1>
+      {% if kind == 'Supplier' %}<p class="aside-copy">Set up your supplier profile and bring your catalog to the teams building what’s next.</p>{% else %}<p class="aside-copy">Create your account and make every supply run a little clearer, calmer, and more on track.</p>{% endif %}
+    </div>
+    <img class="aside-image" src="{% static 'core/images/landing/materials-sheets.jpg' %}" alt="Colorful construction material sheets on warehouse shelves">
+    <div class="aside-list" aria-label="Account benefits"><div><b>01</b><span>One practical place for project supplies.</span></div><div><b>02</b><span>Clear details before you commit.</span></div><div><b>03</b><span>Built around the way teams actually work.</span></div></div>
+  </aside>
+
+  <section class="register-form-wrap" aria-labelledby="register-title">
+    <a class="back-home" href="/" aria-label="Back to the Builtasupply home page">← Back to home</a>
+    <div class="form-intro"><span class="form-kicker">Start your workspace</span><h2 id="register-title">Create your BUILTASUPPLY account.</h2>{% if kind == 'Supplier' %}<p>Provide account and business information. Supplier selling access begins only after approval.</p>{% else %}<p>Create a customer account to browse and purchase supplies. Special membership is assigned separately to customer accounts.</p>{% endif %}<span class="account-chip">{{ kind|upper }} ACCOUNT</span></div>
+    <form method="post" data-registration-form class="registration-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}{% if field.name == 'accept_terms' %}<label for="{{ field.id_for_label }}" class="terms-field">{{ field }}<span>{{ field.label }}</span>{% if field.errors %}{{ field.errors }}{% endif %}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{{ field }}{% if field.help_text %}<small class="muted">{{ field.help_text }}</small>{% endif %}{{ field.errors }}</label>{% endif %}{% endfor %}
+      <div class="register-submit"><p class="login-link">Already have an account? <a href="{% url 'accounts:login' %}">Log in</a></p><button type="submit">Create account <span aria-hidden="true">↗</span></button></div>
+    </form>
+  </section>
+</main>
+
+<script>
+  document.querySelector('[data-registration-form]')?.addEventListener('submit', function () {
+    const button = this.querySelector('button[type=submit]');
+    if (button && this.checkValidity()) { button.disabled = true; button.textContent = 'Creating your account…'; }
+  });
+</script>
+{% endblock %}
