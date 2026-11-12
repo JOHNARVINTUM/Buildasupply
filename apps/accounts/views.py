@@ -5,7 +5,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordResetConfirmView, PasswordResetView
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from .forms import BuiltasupplyPasswordResetForm, CustomerRegistrationForm, LoginForm, SupplierRegistrationForm
+from django.db import transaction
+from apps.audit.services import log_action
+from apps.customers.models import CustomerProfile
+from .forms import BuiltasupplyPasswordResetForm, CustomerRegistrationForm, LoginForm, ProfileForm, SupplierRegistrationForm
 from .services import register_customer, register_supplier
 def _limited(request, bucket, limit, window):
     key = f"auth-rate:{bucket}:{request.META.get('REMOTE_ADDR', 'unknown')}"
@@ -36,7 +39,20 @@ def supplier_register(request):
         return redirect("accounts:registration-success")
     return render(request, "accounts/register.html", {"form": form, "kind": "Supplier"})
 @login_required
-def profile(request): return render(request, "accounts/profile.html")
+def profile(request):
+    form = ProfileForm(request.POST if request.method == "POST" else None, instance=request.user)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            request.user.full_name = form.cleaned_data["full_name"]
+            request.user.phone = form.cleaned_data["phone"]
+            request.user.save(update_fields=["full_name", "phone", "updated_at"])
+            if request.user.primary_role == "CUSTOMER":
+                CustomerProfile.objects.update_or_create(user=request.user, defaults={"full_name": request.user.full_name, "phone": request.user.phone})
+            log_action(actor=request.user, action="PROFILE_UPDATED", target=request.user)
+        messages.success(request, "Your profile has been updated.")
+        return redirect("accounts:profile")
+    layout = {"CUSTOMER": "customers/layout.html", "SUPPLIER": "suppliers/layout.html", "SUPERADMIN": "operations/layout.html"}.get(request.user.primary_role, "customers/layout.html")
+    return render(request, "accounts/profile.html", {"form": form, "profile_layout": layout})
 def registration_success(request):
     context = request.session.pop("registration_success", None)
     if not context: return redirect("accounts:register")

@@ -1,0 +1,47 @@
+<style>
+.notification-center{--navy:#163e62;--green:#194f78;--line:#c6d6e1;--muted:#536c7f;color:#20384d;overflow-wrap:anywhere}
+.notification-center .section-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;margin:0 0 26px}
+.notification-center h1{font:650 clamp(1.9rem,4vw,2.9rem)/1.1 system-ui;letter-spacing:-.045em;color:#163e62;margin:12px 0 16px}
+.notification-center .eyebrow{display:inline-block;background:transparent;margin:0;padding:0;color:#194f78;font:600 10px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.12em;text-transform:uppercase}
+.notification-center .muted{color:#536c7f;font-size:.9rem;line-height:1.65}
+.notification-center .badge{display:inline-block;border:1px solid #b5c9d8;background:#eef5f9;color:#194f78;padding:5px 8px;font:600 9px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.03em;text-transform:uppercase}
+.notification-center .button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:12px 18px;border:1px solid #9db4c4;border-radius:0;background:transparent;color:#163e62;font:600 .85rem/1.4 system-ui;text-decoration:none;margin:12px 0 0}
+.notification-center .button:hover{background:#245d86;color:white;border-color:#245d86}
+.notification-center .empty-state{text-align:center;padding:48px 24px;background:#fafdffee;border:1px dashed #a0b9cd;position:relative}
+.notification-center .empty-state::before{content:'+';position:absolute;top:-12px;left:-6px;font:20px monospace;color:#163e62}
+.notification-center .empty-state h2{font:650 1.35rem/1.3 system-ui;color:#163e62;margin:8px 0;letter-spacing:-.02em}
+.notification-center .empty-state p{max-width:440px;margin:12px auto;color:#536c7f;font-size:.9rem;line-height:1.65}
+.notification-center .notification-entry h2{color:#163e62;font-weight:650;line-height:1.3;letter-spacing:-.02em}
+.notification-center .sr-only{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+
+.notification-center .notification-entry{border:1px solid var(--line);background:#ffffffed;padding:24px;margin:0 0 16px}
+.notification-center .notification-entry.unread{border-left:3px solid var(--navy)}
+.notification-center .notification-entry .section-heading{align-items:start;margin-bottom:12px}
+.notification-center .notification-entry h2{margin:0;font-size:1.1rem}
+.notification-center .notification-entry p{margin:12px 0;font-size:.9rem}
+.notification-center .notification-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font:10px/1.6 ui-monospace,Consolas,monospace;color:var(--muted)}
+.notification-center .notification-entry .button{margin-top:4px}
+.notification-center .notification-empty-mark{display:block;width:80px;height:80px;color:#7296b1;margin:0 auto 20px}
+@media(max-width:600px){.notification-center .notification-entry{padding:18px}.notification-center .notification-entry .section-heading{gap:12px}}
+</style>
+<section class="notification-center" aria-labelledby="notifications-heading">
+  <div class="section-heading">
+    <div><span class="eyebrow">Your workspace / Notifications</span><h1 id="notifications-heading">Updates</h1><p class="muted">{{ notification_intro }}</p></div>
+    {% if notifications %}<span class="badge">{{ notifications|length }} update{{ notifications|length|pluralize }} shown</span>{% endif %}
+  </div>
+  {% for notification in notifications %}
+  <article class="notification-entry{% if not notification.read_at %} unread{% endif %}" aria-labelledby="notification-{{ notification.pk }}">
+    <div class="section-heading">
+      <h2 id="notification-{{ notification.pk }}">{{ notification.title }}</h2>
+      <div class="notification-meta">{% if not notification.read_at %}<span class="badge">Unread</span>{% else %}<span>Read</span>{% endif %}<time datetime="{{ notification.created_at|date:'c' }}">{{ notification.created_at|date:'d M Y, H:i' }}</time></div>
+    </div>
+    <p>{{ notification.body|linebreaksbr }}</p>
+    {% if notification.link %}<a class="button secondary" href="{{ notification.link }}">View update <span aria-hidden="true">↗</span><span class="sr-only">: {{ notification.title }}</span></a>{% endif %}
+  </article>
+  {% empty %}
+  <div class="empty-state">
+    <svg class="notification-empty-mark" viewBox="0 0 80 80" fill="none" aria-hidden="true" focusable="false"><path d="M22 53h36l-5-7V32a13 13 0 0 0-26 0v14l-5 7Zm12 7a6 6 0 0 0 12 0M37 18v-4h6v4" stroke="currentColor" stroke-width="1.2"/><path d="M12 9h56M12 5v8m56-8v8M70 20v43m-4-43h8m-8 43h8M8 70h54" stroke="currentColor" stroke-width=".7" stroke-dasharray="2 3"/><path d="m9 24 6-6m-6 0 6 6m45 46 6-6m-6 0 6 6" stroke="currentColor" stroke-width=".8"/></svg>
+    <span class="eyebrow">Nothing on the board yet</span><h2>You're all caught up.</h2><p>Your notification center is clear. New updates will appear here.</p><a class="button secondary" href="{% url notification_return_url %}">{{ notification_return_label }} <span aria-hidden="true">↗</span></a>
+  </div>
+  {% endfor %}
+</section>

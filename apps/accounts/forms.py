@@ -24,6 +24,16 @@ def normalize_phone(value):
 
 class LoginForm(AuthenticationForm):
     username = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+class ProfileForm(forms.ModelForm):
+    full_name = forms.CharField(label="Full name", max_length=160, widget=forms.TextInput(attrs={"autocomplete": "name"}))
+    phone = forms.CharField(label="Personal phone number", max_length=32, widget=forms.TelInput(attrs={"autocomplete": "tel", "inputmode": "tel"}))
+
+    class Meta:
+        model = User
+        fields = ("full_name", "phone")
+
+    def clean_full_name(self): return normalized_text(self.cleaned_data["full_name"], "Full name")
+    def clean_phone(self): return normalize_phone(self.cleaned_data["phone"])
 class CustomerRegistrationForm(forms.Form):
     first_name = forms.CharField(max_length=80); last_name = forms.CharField(max_length=80)
     email = forms.EmailField(widget=forms.EmailInput(attrs={"autocomplete": "email"})); phone = forms.CharField(max_length=32, validators=[PH_PHONE], widget=forms.TelInput(attrs={"autocomplete": "tel", "inputmode": "tel"}))

@@ -9,14 +9,16 @@
   <div class="hero-strip"><div><b>01 /</b> Approved marketplace suppliers</div><div><b>02 /</b> Current prices in PHP</div><div><b>03 /</b> Stock checked before checkout</div></div>
 </section>
 <section id="supplies" aria-labelledby="catalogue-heading">
-<div class="section-heading"><div><span class="eyebrow">01 / Source your materials</span><h2 id="catalogue-heading">Supplies for the next step.</h2><p class="muted">Browse available materials from approved suppliers.</p></div><span class="badge">{{ products|length }} product{{ products|length|pluralize }} shown</span></div>
+<div class="section-heading"><div><span class="eyebrow">01 / Source your materials</span><h2 id="catalogue-heading">Supplies for the next step.</h2><p class="muted">Browse available materials from approved suppliers.</p></div>{% if not catalog_error %}<span class="badge">{{ products|length }} product{{ products|length|pluralize }} shown</span>{% endif %}</div>
 <div class="product-grid">
+{% if catalog_error %}<div class="empty-state" role="alert">{% include 'customers/includes/supply_mark.html' %}<br><span class="eyebrow">Catalogue temporarily unavailable</span><h2>We couldn't load the supplies.</h2><p>Please refresh the page or try again in a few minutes.</p></div>{% else %}
 {% for p in products %}
 <article class="product-card">
-  <div class="product-art">{% with image=p.images.all|first %}{% if image and image.is_active %}<img src="{{ image.file.url }}" alt="{{ image.alt_text|default:p.name }}" loading="lazy">{% else %}{% include 'customers/includes/supply_mark.html' %}<span>Product image unavailable</span>{% endif %}{% endwith %}</div>
+  <div class="product-art">{% with image=p.active_images|first %}{% if image %}<img src="{{ image.file.url }}" alt="{{ image.alt_text|default:p.name }}" loading="lazy">{% else %}{% include 'customers/includes/supply_mark.html' %}<span>Product image unavailable</span>{% endif %}{% endwith %}</div>
   <div class="product-copy"><span class="badge{% if p.inventory.available_quantity <= p.inventory.low_stock_threshold %} warning{% endif %}">{% if p.inventory.available_quantity <= p.inventory.low_stock_threshold %}Low stock{% else %}In stock{% endif %}</span><h2>{{ p.name }}</h2><p class="muted">{{ p.supplier.display_name }}{% if p.category %} / {{ p.category.name }}{% endif %}</p><p><span class="price">{{ p.current_amount|php }}</span> / {{ p.unit_of_measure }}</p><p class="muted">Minimum order: {{ p.minimum_order_quantity }} {{ p.unit_of_measure }}</p><a class="button secondary" href="{% url 'shop-product-detail' p.pk %}">View supply<span aria-hidden="true"> ↗</span><span class="sr-only">: {{ p.name }}</span></a></div>
 </article>
 {% empty %}<div class="empty-state">{% include 'customers/includes/supply_mark.html' %}<br><span class="eyebrow">The next build starts here</span><h2>No supplies are currently available</h2><p>Available products from approved suppliers will appear here. Try again soon.</p></div>{% endfor %}
+{% endif %}
 </div>
 </section>
 {% endblock %}

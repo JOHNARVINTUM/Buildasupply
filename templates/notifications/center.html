@@ -1,1 +1,7 @@
-{% if user.primary_role == 'CUSTOMER' %}{% include 'customers/notifications.html' %}{% else %}{% include 'notifications/standard_center.html' %}{% endif %}
+{% extends notification_layout %}
+{% block title %}Notifications · BUILTASUPPLY{% endblock %}
+{% block customer_location %}Notifications{% endblock %}
+{% block operations_location %}Notifications{% endblock %}
+{% block customer_content %}{% include 'notifications/includes/notification_content.html' %}{% endblock %}
+{% block supplier_content %}{% include 'notifications/includes/notification_content.html' %}{% endblock %}
+{% block operations_content %}{% include 'notifications/includes/notification_content.html' %}{% endblock %}

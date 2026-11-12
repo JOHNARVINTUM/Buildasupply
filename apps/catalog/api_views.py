@@ -23,7 +23,7 @@ class ProductListCreateView(APIView):
         membership=supplier_for(request.user)
         if not membership or not can_manage_catalog(request.user,membership.supplier): return Response({"detail":"Not found."},status=404)
         try:
-            category=Category.objects.get(pk=request.data.get("category")); p=create_product(supplier=membership.supplier,actor=request.user,category=category,name=request.data["name"],sku=request.data["sku"],description=request.data.get("description",""),unit_of_measure=request.data["unit_of_measure"],minimum_order_quantity=int(request.data.get("minimum_order_quantity",1)),amount_minor=int(request.data["amount_minor"])); return Response({"id":str(p.id),"status":p.status},status=201)
+            category=Category.objects.get(pk=request.data.get("category")); p=create_product(supplier=membership.supplier,actor=request.user,category=category,name=request.data["name"],sku=request.data["sku"],description=request.data.get("description",""),unit_of_measure=request.data["unit_of_measure"],minimum_order_quantity=int(request.data.get("minimum_order_quantity",1)),amount_minor=int(request.data["amount_minor"]),publish_for_approved_supplier=True); return Response({"id":str(p.id),"status":p.status},status=201)
         except (KeyError,ValueError,Category.DoesNotExist,ValidationError) as exc: return Response({"detail":str(exc)},status=400)
 class ProductDetailView(APIView):
     permission_classes=[IsActiveAccount]

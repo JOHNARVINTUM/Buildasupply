@@ -6,9 +6,8 @@
   :root { --about-navy:#102a43; --about-orange:#f26b38; --about-yellow:#f4c95d; --about-mint:#b8d8cf; --about-paper:#f6f4ef; --about-line:#d9dfdc; --about-muted:#627585; }
   body { background:var(--about-paper); }
   .shell { max-width:1240px; padding:22px 30px 50px; }
-  .top { border-bottom:0; padding:6px 0 18px; }
-  .brand { color:var(--about-navy); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:.16em; }
-  .about-page { position:relative; isolation:isolate; overflow:hidden; }
+
+.about-page { position:relative; isolation:isolate; overflow:hidden; }
   .about-page > *:not(.about-parallax) { position:relative; z-index:1; }
   @keyframes about-rise { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
   @keyframes about-logo-float { 0%,100% { transform:translateY(0) rotate(-2deg); } 50% { transform:translateY(-10px) rotate(2deg); } }

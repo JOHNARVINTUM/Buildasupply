@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db import DatabaseError
 from django.core.paginator import Paginator
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -13,17 +14,19 @@ def product_data(p,detail=False):
 class CatalogProductsView(APIView):
     permission_classes=[AllowAny]
     def get(self,request):
-        qs=customer_catalog_queryset()
-        if q:=request.query_params.get("q"):qs=qs.filter(name__icontains=q)|qs.filter(description__icontains=q)|qs.filter(sku__icontains=q)
-        for field in ("category","supplier"):
-            if value:=request.query_params.get(field):qs=qs.filter(**{f"{field}_id":value})
         try:
+            qs=customer_catalog_queryset()
+            if q:=request.query_params.get("q"):qs=qs.filter(name__icontains=q)|qs.filter(description__icontains=q)|qs.filter(sku__icontains=q)
+            for field in ("category","supplier"):
+                if value:=request.query_params.get(field):qs=qs.filter(**{f"{field}_id":value})
             if request.query_params.get("min_price"):qs=qs.filter(current_amount__gte=int(request.query_params["min_price"]))
             if request.query_params.get("max_price"):qs=qs.filter(current_amount__lte=int(request.query_params["max_price"]))
             size=min(max(int(request.query_params.get("page_size",20)),1),50);page=int(request.query_params.get("page",1))
         except ValueError:return Response({"detail":"Invalid pagination or price filter."},status=400)
+        except DatabaseError:return Response({"detail":"The product catalogue is temporarily unavailable. Please try again."},status=503)
         ordering={"price_asc":"current_amount","price_desc":"-current_amount","newest":"-created_at","name":"name"}.get(request.query_params.get("sort"),"name")
-        page_obj=Paginator(qs.order_by(ordering),size).get_page(page)
+        try: page_obj=Paginator(qs.order_by(ordering),size).get_page(page)
+        except DatabaseError: return Response({"detail":"The product catalogue is temporarily unavailable. Please try again."},status=503)
         return Response({"count":page_obj.paginator.count,"page":page_obj.number,"results":[product_data(p) for p in page_obj]})
 class CatalogProductDetailView(APIView):
     permission_classes=[AllowAny]
