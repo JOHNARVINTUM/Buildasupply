@@ -37,7 +37,7 @@ def _active_supplier_ids(request):
 
 def _supplier_order_or_404(request, pk):
     return get_object_or_404(
-        SupplierOrder.objects.filter(supplier_id__in=_active_supplier_ids(request), master_order__cod_commitment__isnull=False)
+        SupplierOrder.objects.filter(supplier_id__in=_active_supplier_ids(request))
         .select_related("master_order", "delivery")
         .prefetch_related("items__product__images", "cod_exceptions"),
         pk=pk,
@@ -58,6 +58,12 @@ def _is_cod(order):
         return False
 
 
+def _require_cod_order(order):
+    if not _is_cod(order):
+        raise PaymentFailure({"code": "COD_ACTION_NOT_AVAILABLE"})
+    return order
+
+
 def _service_error(request, error):
     detail = getattr(error, "message_dict", None) or getattr(error, "messages", None) or str(error)
     if isinstance(detail, dict):
@@ -70,7 +76,12 @@ def _service_error(request, error):
 @login_required
 def cod_order_dashboard(request):
     status_filter = request.GET.get("status", "")
-    orders = SupplierOrder.objects.filter(supplier_id__in=_active_supplier_ids(request), master_order__cod_commitment__isnull=False).select_related("master_order", "delivery").prefetch_related("items", "cod_exceptions").order_by("-master_order__placed_at")
+    payment_filter = request.GET.get("payment", "")
+    orders = SupplierOrder.objects.filter(supplier_id__in=_active_supplier_ids(request)).select_related("master_order", "delivery").prefetch_related("items", "cod_exceptions", "master_order__cod_commitment").order_by("-master_order__placed_at")
+    if payment_filter == "cod":
+        orders = orders.filter(master_order__cod_commitment__isnull=False)
+    elif payment_filter == "online":
+        orders = orders.filter(master_order__cod_commitment__isnull=True, master_order__payment_status="PAID")
     if status_filter in COD_STATUSES:
         orders = orders.filter(status=COD_STATUSES[status_filter])
     elif status_filter == "exceptions":
@@ -78,15 +89,17 @@ def cod_order_dashboard(request):
     page = Paginator(orders, 20).get_page(request.GET.get("page"))
     for order in page:
         order.is_cod = _is_cod(order)
+        order.payment_label = "Cash on delivery" if order.is_cod else "Paid online"
         order.exception_open = any(item.status in {CODException.Status.FAILED_DELIVERY, CODException.Status.DISPUTED} for item in order.cod_exceptions.all())
         order.total_php = order.total_minor / 100
-    return render(request, "orders/supplier_cod_dashboard.html", {"page": page, "status_filter": status_filter, "status_filters": COD_STATUSES})
+    return render(request, "orders/supplier_cod_dashboard.html", {"page": page, "status_filter": status_filter, "payment_filter": payment_filter, "status_filters": COD_STATUSES})
 
 
 @login_required
 def cod_order_detail(request, pk):
     order = _supplier_order_or_404(request, pk)
     order.is_cod = _is_cod(order)
+    order.payment_label = "Cash on delivery" if order.is_cod else "Paid online"
     order.can_fulfill = can_manage_fulfillment(request.user, order.supplier)
     order.total_php = order.total_minor / 100
     for item in order.items.all():
@@ -113,9 +126,25 @@ def accept_cod_order(request, pk):
     if denied: return denied
     order = _fulfillment_order_or_403(request, pk)
     try:
+        _require_cod_order(order)
         accept_cod_supplier_order(supplier_order=order, actor=request.user)
         messages.success(request, "Order accepted. You can now begin preparation.")
     except (PaymentFailure, ValidationError, PermissionDenied) as error:
+        _service_error(request, error)
+    return redirect("supplier-cod-order-detail", pk=order.pk)
+
+
+@login_required
+def confirm_online_order(request, pk):
+    denied = _post_only(request)
+    if denied: return denied
+    order = _fulfillment_order_or_403(request, pk)
+    try:
+        if _is_cod(order):
+            raise ValidationError("Use the COD acceptance action for this order.")
+        transition_supplier_order(supplier_order=order, actor=request.user, next_status="CONFIRMED")
+        messages.success(request, "Online-paid order accepted. You can now begin preparation.")
+    except (ValidationError, PermissionDenied) as error:
         _service_error(request, error)
     return redirect("supplier-cod-order-detail", pk=order.pk)
 
@@ -156,7 +185,24 @@ def dispatch_order(request, pk):
 
 @login_required
 def deliver_order(request, pk):
-    return _transition(request, pk, "DELIVERED", "Order marked as delivered. Record the cash collection when received.")
+    order = _supplier_order_or_404(request, pk)
+    message = "Order marked as delivered. Record the cash collection when received." if _is_cod(order) else "Order marked as delivered. You can now complete the online-paid order."
+    return _transition(request, pk, "DELIVERED", message)
+
+
+@login_required
+def complete_online_order(request, pk):
+    denied = _post_only(request)
+    if denied: return denied
+    order = _fulfillment_order_or_403(request, pk)
+    try:
+        if _is_cod(order):
+            raise ValidationError("COD completion requires collection and customer receipt confirmation.")
+        transition_supplier_order(supplier_order=order, actor=request.user, next_status="COMPLETED")
+        messages.success(request, "Online-paid order completed.")
+    except (ValidationError, PermissionDenied) as error:
+        _service_error(request, error)
+    return redirect("supplier-cod-order-detail", pk=order.pk)
 
 
 @login_required
@@ -169,6 +215,7 @@ def record_collection(request, pk):
         messages.error(request, "Enter the required collection reference and valid collection details.")
         return redirect("supplier-cod-order-detail", pk=order.pk)
     try:
+        _require_cod_order(order)
         record_cod_collection(supplier_order=order, actor=request.user, amount_minor=form.cleaned_data["amount_minor"], currency=form.cleaned_data["currency"], collection_reference=form.cleaned_data["collection_reference"], evidence_metadata=form.evidence_metadata())
         messages.success(request, "Cash collection recorded. Awaiting customer receipt confirmation.")
     except (PaymentFailure, ValidationError, PermissionDenied) as error:
@@ -186,6 +233,7 @@ def report_exception(request, pk):
         messages.error(request, "Provide a failed-delivery or dispute reason.")
         return redirect("supplier-cod-order-detail", pk=order.pk)
     try:
+        _require_cod_order(order)
         report_cod_delivery_exception(supplier_order=order, actor=request.user, status=form.cleaned_data["status"], reason=form.cleaned_data["reason"])
         messages.success(request, "Delivery exception reported for superadmin review. Inventory and settlement were not changed.")
     except (PaymentFailure, ValidationError, PermissionDenied) as error:
