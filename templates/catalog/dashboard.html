@@ -2,7 +2,7 @@
 {% block title %}Supplier overview · BUILTASUPPLY{% endblock %}
 {% block supplier_content %}
 <section class="hero">
-<div><span class="eyebrow">Supplier operations / {{ supplier.get_approval_status_display }}</span><h1>{{ supplier.display_name }}</h1><p>Your catalog, stock, and fulfillment — on one drawing board.</p><div class="actions"><a class="button" href="{% url 'supplier-products' %}">Review catalog</a><a class="button secondary" href="{% url 'supplier-cod-orders' %}">COD orders</a></div></div>
+<div><span class="eyebrow">Supplier operations / {{ supplier.get_approval_status_display }}</span><h1>{{ supplier.display_name }}</h1><p>Your catalog, stock, and fulfillment — on one drawing board.</p><div class="actions"><a class="button" href="{% url 'supplier-products' %}">Review catalog</a><a class="button secondary" href="{% url 'supplier-cod-orders' %}">Manage orders</a></div></div>
 {% include 'suppliers/includes/blueprint_showcase.html' %}
 </section>
 <div class="metrics"><article class="card"><span class="eyebrow">Awaiting moderation</span><strong>{{ pending }}</strong><span class="muted">Products pending review</span></article><article class="card"><span class="eyebrow">Inventory attention</span><strong>{{ low_stock }}</strong><span class="muted">Low-stock products</span></article></div>

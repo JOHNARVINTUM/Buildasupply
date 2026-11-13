@@ -1,21 +1,23 @@
 {% extends 'suppliers/layout.html' %}
-{% block title %}COD orders · BUILTASUPPLY{% endblock %}
+{% block title %}Supplier orders · BUILTASUPPLY{% endblock %}
 {% block supplier_content %}
 <section class="panel" style="max-width:100%">
-  <div class="status">SUPPLIER FULFILLMENT · CASH ON DELIVERY</div>
+  <div class="status">SUPPLIER FULFILLMENT · ALL PAYMENT METHODS</div>
   <div style="display:flex;justify-content:space-between;gap:16px;align-items:start;flex-wrap:wrap">
-    <div><h1>COD orders</h1><p class="muted">Manage only your supplier orders. Collection and receipt confirmation remain separate events.</p></div>
+    <div><h1>Supplier orders</h1><p class="muted">Manage your verified online-paid and COD supplier orders. COD collection and receipt confirmation remain separate events.</p></div>
     <a class="button secondary" style="margin-top:0" href="{% url 'supplier-dashboard' %}">Supplier dashboard</a>
   </div>
   <nav style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">
-    <a class="button {% if not status_filter %}secondary{% endif %}" style="margin:0" href="{% url 'supplier-cod-orders' %}">All COD</a>
-    {% for key, label in status_filters.items %}<a class="button {% if status_filter != key %}secondary{% endif %}" style="margin:0" href="?status={{ key }}">{{ label|title }}</a>{% endfor %}
-    <a class="button {% if status_filter != 'exceptions' %}secondary{% endif %}" style="margin:0" href="?status=exceptions">Exceptions</a>
+    <a class="button {% if not payment_filter %}secondary{% endif %}" style="margin:0" href="{% url 'supplier-cod-orders' %}">All orders</a>
+    <a class="button {% if payment_filter != 'online' %}secondary{% endif %}" style="margin:0" href="?payment=online">Paid online</a>
+    <a class="button {% if payment_filter != 'cod' %}secondary{% endif %}" style="margin:0" href="?payment=cod">COD</a>
+    {% for key, label in status_filters.items %}<a class="button {% if status_filter != key %}secondary{% endif %}" style="margin:0" href="?payment={{ payment_filter }}&status={{ key }}">{{ label|title }}</a>{% endfor %}
+    <a class="button {% if status_filter != 'exceptions' %}secondary{% endif %}" style="margin:0" href="?payment=cod&status=exceptions">COD exceptions</a>
   </nav>
-  <div style="overflow-x:auto"><div class="table-scroll"><table style="width:100%;border-collapse:collapse"><thead><tr><th align="left">Order</th><th align="left">Date</th><th align="left">Products</th><th align="left">Total</th><th align="left">Fulfillment</th><th align="left">Delivery</th><th align="left">COD</th><th></th></tr></thead><tbody>
-  {% for order in page %}<tr style="border-top:1px solid var(--line)"><td style="padding:12px 6px"><strong>{{ order.master_order.order_number }}</strong><br><small class="muted">{{ order.id|slice:':8' }}</small></td><td>{{ order.master_order.placed_at|date:"d M Y, H:i" }}</td><td>{{ order.items.count }}</td><td>₱{{ order.total_php|floatformat:2 }}</td><td>{{ order.get_status_display }}</td><td>{{ order.delivery.status|default:"PENDING" }}</td><td>{% if order.cod_collection %}Collected{% else %}Awaiting collection{% endif %}{% if order.exception_open %}<br><small style="color:var(--danger)">Exception open</small>{% endif %}</td><td><a class="button secondary" style="margin:0" href="{% url 'supplier-cod-order-detail' order.pk %}">Open</a></td></tr>
-  {% empty %}<tr><td colspan="8" style="padding:22px">No COD supplier orders match this filter.</td></tr>{% endfor %}
+  <div style="overflow-x:auto"><div class="table-scroll"><table style="width:100%;border-collapse:collapse"><thead><tr><th align="left">Order</th><th align="left">Date</th><th align="left">Products</th><th align="left">Total</th><th align="left">Payment</th><th align="left">Fulfillment</th><th align="left">Delivery</th><th></th></tr></thead><tbody>
+  {% for order in page %}<tr style="border-top:1px solid var(--line)"><td style="padding:12px 6px"><strong>{{ order.master_order.order_number }}</strong><br><small class="muted">{{ order.id|slice:':8' }}</small></td><td>{{ order.master_order.placed_at|date:"d M Y, H:i" }}</td><td>{{ order.items.count }}</td><td>₱{{ order.total_php|floatformat:2 }}</td><td>{{ order.payment_label }}{% if order.is_cod and order.cod_collection %}<br><small>Collection recorded</small>{% endif %}{% if order.exception_open %}<br><small style="color:var(--danger)">Exception open</small>{% endif %}</td><td>{{ order.get_status_display }}</td><td>{{ order.delivery.status|default:"PENDING" }}</td><td><a class="button secondary" style="margin:0" href="{% url 'supplier-cod-order-detail' order.pk %}">Open</a></td></tr>
+  {% empty %}<tr><td colspan="8" style="padding:22px">No supplier orders match this filter.</td></tr>{% endfor %}
   </tbody></table></div></div>
-  {% if page.has_other_pages %}<nav style="display:flex;gap:12px;margin-top:20px">{% if page.has_previous %}<a href="?status={{ status_filter }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?status={{ status_filter }}&page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+  {% if page.has_other_pages %}<nav style="display:flex;gap:12px;margin-top:20px">{% if page.has_previous %}<a href="?payment={{ payment_filter }}&status={{ status_filter }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?payment={{ payment_filter }}&status={{ status_filter }}&page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
 </section>
 {% endblock %}
