@@ -21,6 +21,9 @@ def load_local_env(path):
 load_local_env(BASE_DIR / ".env")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 BUILTASUPPLY_DEMO_WEBHOOK_SECRET = os.environ.get("BUILTASUPPLY_DEMO_WEBHOOK_SECRET")
+# Server-to-server token for the narrowly scoped RealEstateDemo delivery-status
+# endpoint. Keep this value only in deployment environment configuration.
+REALESTATE_STATUS_API_TOKEN = os.environ.get("REALESTATE_STATUS_API_TOKEN", "")
 SECRET_KEY = os.environ.get("BUILTASUPPLY_SECRET_KEY")
 if not SECRET_KEY:
     if not DEBUG: raise ImproperlyConfigured("BUILTASUPPLY_SECRET_KEY must be set outside development.")
