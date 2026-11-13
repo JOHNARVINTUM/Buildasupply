@@ -9,9 +9,9 @@ from apps.orders.models import MasterOrder
 
 
 class RealEstateOrderDeliveryStatusView(APIView):
-    """Expose only a linked order's delivery state to RealEstateDemo.
+    """Expose a linked order's delivery state and limited purchase summary.
 
-    This intentionally returns no buyer, item, payment, supplier, or address data.
+    This intentionally returns no buyer, payment, supplier, or address data.
     """
 
     authentication_classes = []
@@ -25,7 +25,7 @@ class RealEstateOrderDeliveryStatusView(APIView):
 
         order = (
             MasterOrder.objects.filter(order_number=order_number)
-            .prefetch_related("supplier_orders__delivery")
+            .prefetch_related("supplier_orders__delivery", "supplier_orders__items")
             .first()
         )
         if not order:
@@ -44,4 +44,25 @@ class RealEstateOrderDeliveryStatusView(APIView):
         else:
             delivery_status = "PENDING"
 
-        return Response({"order_number": order.order_number, "delivery_status": delivery_status})
+        items = []
+        for supplier_order in supplier_orders:
+            for item in supplier_order.items.all():
+                items.append(
+                    {
+                        "name": item.product_name,
+                        "quantity": item.quantity,
+                        "unit_of_measure": item.unit_of_measure,
+                        "unit_price_minor": item.unit_price_minor,
+                        "line_total_minor": item.line_total_minor,
+                    }
+                )
+
+        return Response(
+            {
+                "order_number": order.order_number,
+                "delivery_status": delivery_status,
+                "currency": order.currency,
+                "order_total_minor": order.total_minor,
+                "items": items,
+            }
+        )
