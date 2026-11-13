@@ -5,7 +5,11 @@ from django.db import models
 from .managers import UserManager
 
 class User(AbstractBaseUser, PermissionsMixin):
-    class GlobalRole(models.TextChoices): CUSTOMER = "CUSTOMER", "Customer"; SUPPLIER = "SUPPLIER", "Supplier"; SUPERADMIN = "SUPERADMIN", "Superadmin"
+    class GlobalRole(models.TextChoices):
+        CUSTOMER = "CUSTOMER", "Customer"
+        STAFF_BUYER = "STAFF_BUYER", "Staff buyer"
+        SUPPLIER = "SUPPLIER", "Supplier"
+        SUPERADMIN = "SUPERADMIN", "Superadmin"
     class AccountStatus(models.TextChoices): ACTIVE = "ACTIVE", "Active"; PENDING_VERIFICATION = "PENDING_VERIFICATION", "Pending verification"; SUSPENDED = "SUSPENDED", "Suspended"; DEACTIVATED = "DEACTIVATED", "Deactivated"
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)

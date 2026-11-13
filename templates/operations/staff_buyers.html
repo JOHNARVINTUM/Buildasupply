@@ -1,0 +1,32 @@
+{% extends 'operations/layout.html' %}
+{% block title %}Staff buyers | BUILTASUPPLY{% endblock %}
+{% block operations_location %}Staff buyers{% endblock %}
+{% block operations_content %}
+<section class="panel">
+  <span class="status">Superadmin · Staff purchasing accounts</span>
+  <h1>Staff buyers</h1>
+  <p class="muted">Create individual BUILTASUPPLY purchasing accounts. These accounts use BUILTASUPPLY credentials only and are separate from any maintenance system.</p>
+
+  <details{% if form.errors %} open{% endif %}>
+    <summary>Create staff buyer account</summary>
+    <form method="post" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;margin-top:12px" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+      <label{% if field.name == 'password2' %} style="grid-column:span 2"{% endif %}>{{ field.label }}{{ field }}{% for error in field.errors %}<small style="color:#9c3535">{{ error }}</small>{% endfor %}</label>
+      {% endfor %}
+      {% for error in form.non_field_errors %}<p style="grid-column:span 2;color:#9c3535">{{ error }}</p>{% endfor %}
+      <p style="grid-column:span 2"><button type="submit">Create staff buyer</button></p>
+    </form>
+  </details>
+
+  <form method="get" style="display:flex;gap:10px;align-items:end;margin:24px 0 8px">
+    <label style="margin:0;flex:1">Search name or email<input name="q" type="search" value="{{ query }}" placeholder="Find a staff buyer"></label>
+    <button type="submit" style="margin-top:0">Search</button>
+  </form>
+  <table>
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Account status</th><th>Created</th></tr></thead>
+    <tbody>{% for account in page %}<tr><td>{{ account.full_name|default:"—" }}</td><td>{{ account.email }}</td><td>{{ account.phone|default:"—" }}</td><td>{{ account.get_account_status_display }}</td><td>{{ account.date_joined|date:"d M Y" }}</td></tr>{% empty %}<tr><td colspan="5">No staff buyer accounts found.</td></tr>{% endfor %}</tbody>
+  </table>
+  {% if page.has_other_pages %}<p>{% if page.has_previous %}<a href="?q={{ query|urlencode }}&page={{ page.previous_page_number }}">Previous</a>{% endif %} <span class="muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span> {% if page.has_next %}<a href="?q={{ query|urlencode }}&page={{ page.next_page_number }}">Next</a>{% endif %}</p>{% endif %}
+</section>
+{% endblock %}

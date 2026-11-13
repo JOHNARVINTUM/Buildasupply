@@ -14,9 +14,10 @@ from apps.wallets.models import Wallet
 from apps.wallets.models import SettlementRecord
 from apps.wallets.services import release_settlement
 from apps.inventory.models import InventoryMovement, InventoryReservation
-from apps.orders.models import SupplierOrder
+from apps.orders.models import MasterOrder, SupplierOrder
 from apps.accounts.models import User
-from apps.accounts.services import set_account_status
+from apps.accounts.forms import StaffBuyerCreateForm
+from apps.accounts.services import register_staff_buyer, set_account_status
 logger = logging.getLogger(__name__)
 def admin_required(view):return user_passes_test(lambda u:u.is_authenticated and u.primary_role=="SUPERADMIN" and u.account_status=="ACTIVE")(view)
 @admin_required
@@ -50,6 +51,69 @@ def update_user_status(request, pk):
         set_account_status(user=account, actor=request.user, status=status)
         messages.success(request, f"Updated {account.email} to {status.replace('_', ' ').title()}.")
     return redirect("operations-users")
+
+
+@admin_required
+def staff_buyers(request):
+    """Create and manage local BUILTASUPPLY purchasing accounts for staff."""
+    if request.method == "POST":
+        form = StaffBuyerCreateForm(request.POST)
+        if form.is_valid():
+            buyer = register_staff_buyer(
+                actor=request.user,
+                email=form.cleaned_data["email"],
+                password1=form.cleaned_data["password1"],
+                full_name=form.cleaned_data["full_name"],
+                phone=form.cleaned_data["phone"],
+            )
+            messages.success(request, f"Created staff buyer account for {buyer.full_name or buyer.email}.")
+            return redirect("operations-staff-buyers")
+    else:
+        form = StaffBuyerCreateForm()
+
+    query = request.GET.get("q", "").strip()
+    buyers = User.objects.filter(primary_role=User.GlobalRole.STAFF_BUYER).order_by("email")
+    if query:
+        buyers = buyers.filter(Q(email__icontains=query) | Q(full_name__icontains=query))
+    page = Paginator(buyers, 25).get_page(request.GET.get("page"))
+    return render(request, "operations/staff_buyers.html", {"form": form, "page": page, "query": query})
+
+
+@admin_required
+def staff_purchases(request):
+    """Read-only operational monitoring of orders created by staff buyers."""
+    orders = (
+        MasterOrder.objects.filter(customer__user__primary_role=User.GlobalRole.STAFF_BUYER)
+        .select_related("customer__user")
+        .prefetch_related("supplier_orders__delivery")
+        .order_by("-placed_at")
+    )
+    if value := request.GET.get("staff"):
+        orders = orders.filter(customer__user_id=value)
+    if value := request.GET.get("order"):
+        orders = orders.filter(Q(order_number__icontains=value) | Q(customer__user__email__icontains=value))
+    if value := request.GET.get("payment_status"):
+        orders = orders.filter(payment_status=value)
+    if value := request.GET.get("status"):
+        orders = orders.filter(status=value)
+    if value := request.GET.get("delivery_status"):
+        orders = orders.filter(supplier_orders__delivery__status=value).distinct()
+
+    metrics = orders.aggregate(total=Sum("total_minor"))
+    page = Paginator(orders, 25).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "operations/staff_purchases.html",
+        {
+            "page": page,
+            "staff_buyers": User.objects.filter(primary_role=User.GlobalRole.STAFF_BUYER).order_by("full_name", "email"),
+            "filters": request.GET,
+            "order_statuses": SupplierOrder.Status.choices,
+            "payment_statuses": Payment.Status.choices,
+            "staff_order_count": orders.count(),
+            "staff_order_total_minor": metrics["total"] or 0,
+        },
+    )
 
 @admin_required
 def suppliers(request):

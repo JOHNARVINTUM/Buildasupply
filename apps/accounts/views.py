@@ -46,12 +46,12 @@ def profile(request):
             request.user.full_name = form.cleaned_data["full_name"]
             request.user.phone = form.cleaned_data["phone"]
             request.user.save(update_fields=["full_name", "phone", "updated_at"])
-            if request.user.primary_role == "CUSTOMER":
+            if request.user.primary_role in {"CUSTOMER", "STAFF_BUYER"}:
                 CustomerProfile.objects.update_or_create(user=request.user, defaults={"full_name": request.user.full_name, "phone": request.user.phone})
             log_action(actor=request.user, action="PROFILE_UPDATED", target=request.user)
         messages.success(request, "Your profile has been updated.")
         return redirect("accounts:profile")
-    layout = {"CUSTOMER": "customers/layout.html", "SUPPLIER": "suppliers/layout.html", "SUPERADMIN": "operations/layout.html"}.get(request.user.primary_role, "customers/layout.html")
+    layout = {"CUSTOMER": "customers/layout.html", "STAFF_BUYER": "customers/layout.html", "SUPPLIER": "suppliers/layout.html", "SUPERADMIN": "operations/layout.html"}.get(request.user.primary_role, "customers/layout.html")
     return render(request, "accounts/profile.html", {"form": form, "profile_layout": layout})
 def registration_success(request):
     context = request.session.pop("registration_success", None)

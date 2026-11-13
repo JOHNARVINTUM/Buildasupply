@@ -1,0 +1,25 @@
+{% extends 'operations/layout.html' %}
+{% block title %}Staff purchases | BUILTASUPPLY{% endblock %}
+{% block operations_location %}Staff purchases{% endblock %}
+{% block operations_content %}
+<section class="panel">
+  <span class="status">Superadmin · Read-only purchase monitoring</span>
+  <h1>Staff purchases</h1>
+  <p class="muted">Monitor orders created by BUILTASUPPLY staff buyers. This screen does not create tenant charges, reimbursements, or external-system records.</p>
+  <div class="operations-metrics compact" style="margin:20px 0"><article class="operations-metric"><span>Staff orders</span><strong>{{ staff_order_count }}</strong></article><article class="operations-metric"><span>Order total, centavos</span><strong>{{ staff_order_total_minor }}</strong></article></div>
+
+  <form method="get" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 12px;align-items:end">
+    <label>Staff buyer<select name="staff"><option value="">All staff buyers</option>{% for buyer in staff_buyers %}<option value="{{ buyer.pk }}"{% if filters.staff == buyer.pk|stringformat:'s' %} selected{% endif %}>{{ buyer.full_name|default:buyer.email }}</option>{% endfor %}</select></label>
+    <label>Order or email<input name="order" value="{{ filters.order|default:'' }}" placeholder="Order number or email"></label>
+    <label>Payment status<select name="payment_status"><option value="">All payment statuses</option>{% for value,label in payment_statuses %}<option value="{{ value }}"{% if filters.payment_status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Order status<select name="status"><option value="">All order statuses</option>{% for value,label in order_statuses %}<option value="{{ value }}"{% if filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Delivery status<select name="delivery_status"><option value="">All delivery statuses</option><option value="PENDING"{% if filters.delivery_status == 'PENDING' %} selected{% endif %}>Pending</option><option value="SHIPPED"{% if filters.delivery_status == 'SHIPPED' %} selected{% endif %}>Shipped</option><option value="DELIVERED"{% if filters.delivery_status == 'DELIVERED' %} selected{% endif %}>Delivered</option></select></label>
+    <p style="margin:0"><button type="submit">Apply filters</button></p>
+  </form>
+
+  <table><thead><tr><th>Order</th><th>Staff buyer</th><th>Payment</th><th>Order status</th><th>Delivery</th><th>Total</th><th>Placed</th></tr></thead><tbody>
+    {% for order in page %}<tr><td>{{ order.order_number }}</td><td>{{ order.customer.user.full_name|default:order.customer.user.email }}<br><small>{{ order.customer.user.email }}</small></td><td>{{ order.payment_status }}</td><td>{{ order.status }}</td><td>{% for supplier_order in order.supplier_orders.all %}{{ supplier_order.delivery.status|default:"Pending" }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td><td>{{ order.total_minor }} {{ order.currency }}</td><td>{{ order.placed_at|date:"d M Y H:i" }}</td></tr>{% empty %}<tr><td colspan="7">No staff purchases match these filters.</td></tr>{% endfor %}
+  </tbody></table>
+  {% if page.has_other_pages %}<p>{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %} <span class="muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span> {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}</p>{% endif %}
+</section>
+{% endblock %}

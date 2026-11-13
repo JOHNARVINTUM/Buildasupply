@@ -10,6 +10,7 @@ def home(request):
 
     destinations = {
         "CUSTOMER": "shop-home",
+        "STAFF_BUYER": "shop-home",
         "SUPPLIER": "supplier-home",
         "SUPERADMIN": "operations-home",
     }
