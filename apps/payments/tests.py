@@ -1,4 +1,5 @@
-import hashlib,hmac,json,os
+import hashlib,hmac,json,os,time
+from unittest.mock import patch
 os.environ.setdefault("BUILTASUPPLY_DEMO_WEBHOOK_SECRET", "test-demo-webhook-secret")
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -11,7 +12,7 @@ from apps.inventory.services import record_movement
 from apps.orders.services import checkout
 from apps.wallets.models import SettlementRecord
 from .models import Payment, PaymentReconciliation, RefundWalletReversal, WebhookEvent
-from .services import PaymentFailure, approve_refund, complete_refund, confirm_payment, create_refund, initiate_payment, initiate_refund, process_refund_webhook, process_webhook, resolve_payment_reconciliation
+from .services import PaymentFailure, approve_refund, complete_refund, confirm_payment, create_refund, initiate_payment, initiate_refund, process_pesoway_webhook, process_refund_webhook, process_webhook, resolve_payment_reconciliation
 User=get_user_model()
 class PaymentTests(TestCase):
     def setUp(self):
@@ -195,3 +196,101 @@ class PaymentBrowserWorkflowTests(PaymentTests):
         self.client.force_login(other)
         self.assertEqual(self.client.get(self._select_url()).status_code, 404)
         self.assertEqual(self.client.get(f"/shop/payments/{payment.pk}/").status_code, 404)
+
+
+class PesoWayIntegrationTests(PaymentTests):
+    def setUp(self):
+        super().setUp()
+        self.environment = {
+            "PESOWAY_BASE_URL": "http://pesoway.test",
+            "PESOWAY_API_KEY": "pw_test_scoped_key",
+            "PESOWAY_WEBHOOK_SECRET": "whsec_test_secret",
+        }
+        self.environment_patch = patch.dict(os.environ, self.environment)
+        self.environment_patch.start()
+        self.addCleanup(self.environment_patch.stop)
+
+    def _create_response(self, payment):
+        return {"data": {"id": "2c1fcdee-3f58-4ed8-9a7d-458b4cf90511", "amount_centavos": payment.amount_minor, "currency": "PHP", "merchant_reference": payment.provider_merchant_reference, "status": "requires_payment_method", "checkout_url": "/checkout/2c1fcdee-3f58-4ed8-9a7d-458b4cf90511/"}}
+
+    def _start(self):
+        from apps.orders.models import MasterOrder
+        order = MasterOrder.objects.get(pk=self.order_id)
+        with patch("apps.payments.adapters.PesoWayAdapter._request_json") as request_json:
+            request_json.return_value = {"data": {"id": "2c1fcdee-3f58-4ed8-9a7d-458b4cf90511", "amount_centavos": order.total_minor, "currency": "PHP", "merchant_reference": f"buildasupply-order-{order.id}", "status": "requires_payment_method", "checkout_url": "/checkout/2c1fcdee-3f58-4ed8-9a7d-458b4cf90511/"}}
+            result = initiate_payment(customer=self.customer.customer_profile, order=order, provider_code="pesoway", method_category="HOSTED_CHECKOUT", idempotency_key="pesoway-start", return_url="http://buildasupply.test/payments/pesoway/complete/")
+        return result, Payment.objects.get(pk=result["payment_id"])
+
+    def _webhook(self, payment, event_id, event_type="payment_intent.succeeded", status="succeeded"):
+        body = json.dumps({"id": event_id, "type": event_type, "data": {"payment_intent": payment.provider_reference, "status": status}}, separators=(",", ":")).encode()
+        timestamp = str(int(time.time()))
+        signature = hmac.new(os.environ["PESOWAY_WEBHOOK_SECRET"].encode(), f"{timestamp}.".encode() + body, hashlib.sha256).hexdigest()
+        return body, {"X-PesoWay-Event": event_id, "X-PesoWay-Timestamp": timestamp, "X-PesoWay-Signature": f"v1={signature}"}
+
+    def _status_response(self, payment, status="succeeded", merchant_reference=None):
+        return {"data": {"id": payment.provider_reference, "status": status, "merchant_reference": merchant_reference or payment.provider_merchant_reference, "amount_centavos": payment.amount_minor, "currency": payment.currency}}
+
+    def test_intent_creation_maps_centavos_and_is_idempotent(self):
+        result, payment = self._start()
+        self.assertEqual(payment.amount_minor, 10000)
+        self.assertEqual(payment.provider_reference, "2c1fcdee-3f58-4ed8-9a7d-458b4cf90511")
+        self.assertEqual(payment.provider_merchant_reference, f"buildasupply-order-{self.order_id}")
+        self.assertEqual(result["instruction_url"], "http://pesoway.test/checkout/2c1fcdee-3f58-4ed8-9a7d-458b4cf90511/")
+        again = initiate_payment(customer=self.customer.customer_profile, order=payment.master_order, provider_code="pesoway", method_category="HOSTED_CHECKOUT", idempotency_key="pesoway-start", return_url="http://buildasupply.test/payments/pesoway/complete/")
+        self.assertTrue(again["idempotent"])
+        self.assertEqual(Payment.objects.get(pk=payment.pk).attempts.count(), 1)
+
+    def test_return_page_never_marks_a_payment_paid(self):
+        _, payment = self._start()
+        self.client.force_login(self.customer)
+        response = self.client.get(f"/payments/pesoway/complete/?payment_intent={payment.provider_reference}&status=succeeded")
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, "PENDING")
+        self.assertContains(response, "Returning here never marks an order as paid")
+
+    def test_valid_signed_webhook_confirms_once(self):
+        _, payment = self._start()
+        body, headers = self._webhook(payment, "event-pesoway-success")
+        with patch("apps.payments.adapters.PesoWayAdapter._request_json", return_value=self._status_response(payment)):
+            self.assertFalse(process_pesoway_webhook(raw_body=body, headers=headers)["duplicate"])
+            self.assertTrue(process_pesoway_webhook(raw_body=body, headers=headers)["duplicate"])
+        payment.refresh_from_db()
+        payment.master_order.refresh_from_db()
+        self.assertEqual(payment.status, "PAID")
+        self.assertEqual(payment.master_order.status, "PROCESSING")
+        self.assertEqual(payment.master_order.supplier_orders.first().inventory_reservations.filter(status="CONSUMED").count(), 1)
+
+    def test_invalid_signature_and_cross_order_reference_are_rejected(self):
+        _, payment = self._start()
+        body, headers = self._webhook(payment, "event-invalid")
+        headers["X-PesoWay-Signature"] = "v1=invalid"
+        with self.assertRaises(PaymentFailure):
+            process_pesoway_webhook(raw_body=body, headers=headers)
+        body, headers = self._webhook(payment, "event-wrong-order")
+        with patch("apps.payments.adapters.PesoWayAdapter._request_json", return_value=self._status_response(payment, merchant_reference="buildasupply-order-other")):
+            with self.assertRaises(PaymentFailure):
+                process_pesoway_webhook(raw_body=body, headers=headers)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, "PENDING")
+        self.assertFalse(WebhookEvent.objects.filter(provider_event_id="event-wrong-order").exists())
+
+    def test_canceled_intent_does_not_mark_order_paid(self):
+        _, payment = self._start()
+        body, headers = self._webhook(payment, "event-pesoway-canceled", "payment_intent.canceled", "canceled")
+        with patch("apps.payments.adapters.PesoWayAdapter._request_json", return_value=self._status_response(payment, status="canceled")):
+            process_pesoway_webhook(raw_body=body, headers=headers)
+        payment.refresh_from_db()
+        payment.master_order.refresh_from_db()
+        self.assertEqual(payment.status, "CANCELLED")
+        self.assertNotEqual(payment.master_order.payment_status, "PAID")
+
+    def test_webhook_rollback_does_not_leave_a_paid_payment(self):
+        _, payment = self._start()
+        body, headers = self._webhook(payment, "event-pesoway-rollback")
+        with patch("apps.payments.adapters.PesoWayAdapter._request_json", return_value=self._status_response(payment)), patch("apps.wallets.services.post_payment_earnings", side_effect=RuntimeError("ledger unavailable")):
+            with self.assertRaises(RuntimeError):
+                process_pesoway_webhook(raw_body=body, headers=headers)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, "PENDING")
+        self.assertFalse(WebhookEvent.objects.filter(provider_event_id="event-pesoway-rollback").exists())

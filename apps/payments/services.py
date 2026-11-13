@@ -59,7 +59,7 @@ def _lock_active_reservations(master_order):
 
 
 @transaction.atomic
-def initiate_payment(*, customer, order, provider_code, method_category, idempotency_key):
+def initiate_payment(*, customer, order, provider_code, method_category, idempotency_key, return_url=""):
     if not idempotency_key:
         raise PaymentFailure({"code": "IDEMPOTENCY_REQUIRED"})
     order = MasterOrder.objects.select_for_update().get(pk=order.pk)
@@ -73,18 +73,26 @@ def initiate_payment(*, customer, order, provider_code, method_category, idempot
         raise PaymentFailure({"code": "NO_ACTIVE_RESERVATIONS"})
     payment = Payment.objects.filter(master_order=order, status__in=["PENDING", "AUTHORIZED"]).first()
     if not payment:
-        payment = Payment.objects.create(master_order=order, internal_reference=f"PAY-{order.order_number}-{uuid.uuid4().hex[:10]}", provider_code=provider_code, method_category=method_category, amount_minor=order.total_minor, currency=order.currency)
+        payment = Payment.objects.create(master_order=order, internal_reference=f"PAY-{order.order_number}-{uuid.uuid4().hex[:10]}", provider_code=provider_code, provider_merchant_reference=f"buildasupply-order-{order.id}" if provider_code == "pesoway" else "", method_category=method_category, amount_minor=order.total_minor, currency=order.currency)
     if payment.provider_code != provider_code:
         raise PaymentFailure({"code": "PAYMENT_PROVIDER_MISMATCH"})
     old = payment.attempts.filter(idempotency_key=idempotency_key).first()
     if old:
-        return {"payment_id": str(payment.id), "attempt_id": old.id, "status": payment.status, "idempotent": True}
+        result = {"payment_id": str(payment.id), "attempt_id": old.id, "status": payment.status, "idempotent": True}
+        if provider_code == "pesoway" and payment.provider_reference:
+            result["instruction_url"] = get_adapter(provider_code).checkout_url(payment.provider_reference)
+        return result
     active_attempt = payment.attempts.filter(status="PENDING").first()
     if active_attempt:
-        return {"payment_id": str(payment.id), "attempt_id": active_attempt.id, "status": payment.status, "pending_attempt_reused": True}
-    result = get_adapter(provider_code).create_payment(payment=payment, idempotency_key=idempotency_key)
+        result = {"payment_id": str(payment.id), "attempt_id": active_attempt.id, "status": payment.status, "pending_attempt_reused": True}
+        if provider_code == "pesoway" and payment.provider_reference:
+            result["instruction_url"] = get_adapter(provider_code).checkout_url(payment.provider_reference)
+        return result
+    result = get_adapter(provider_code).create_payment(payment=payment, idempotency_key=idempotency_key, return_url=return_url)
     payment.provider_reference = result["provider_reference"]
-    payment.save(update_fields=["provider_reference", "updated_at"])
+    payment.provider_merchant_reference = result.get("merchant_reference", payment.provider_merchant_reference)
+    payment.provider_status = result.get("provider_status", payment.provider_status)
+    payment.save(update_fields=["provider_reference", "provider_merchant_reference", "provider_status", "updated_at"])
     attempt = PaymentAttempt.objects.create(payment=payment, provider_code=provider_code, provider_attempt_reference=result["attempt_reference"], idempotency_key=idempotency_key, method_category=method_category, status=result["status"])
     return {"payment_id": str(payment.id), "attempt_id": attempt.id, "status": payment.status, "instruction_url": result["instruction_url"]}
 
@@ -189,18 +197,18 @@ def confirm_payment(*, payment, provider_event_id, event_type, normalized_status
             return {"payment": payment, "reconciliation": reconciliation}
         _finalize_paid_payment(payment=payment, order=order)
         payment.attempts.filter(status="PENDING").update(status="COMPLETED", completed_at=timezone.now())
-    elif normalized_status == "FAILED" and payment.status != "PAID":
+    elif normalized_status in {"FAILED", "CANCELLED", "EXPIRED"} and payment.status != "PAID":
         release_reservations(master_order=order, expired=True)
-        payment.status = "FAILED"
+        payment.status = normalized_status
         payment.save(update_fields=["status", "updated_at"])
-        order.payment_status = "FAILED"
+        order.payment_status = normalized_status
         order.status = "CANCELLED"
         order.save(update_fields=["payment_status", "status"])
         SupplierOrder.objects.filter(master_order=order).exclude(status="CANCELLED").update(status="CANCELLED")
-        payment.attempts.filter(status="PENDING").update(status="FAILED", completed_at=timezone.now(), failure_code="PROVIDER_FAILED")
+        payment.attempts.filter(status="PENDING").update(status="FAILED", completed_at=timezone.now(), failure_code=f"PROVIDER_{normalized_status}")
         from apps.notifications.services import emit
         emit("payment.failed",payment,{"recipient_ids":[str(order.customer.user_id)],"order_number":order.order_number,"link":f"/shop/payments/{payment.id}/","priority":"HIGH"})
-        log_action(actor=None, action="PAYMENT_FAILED_ORDER_CANCELLED", target=payment, after={"status": "FAILED", "order_status": "CANCELLED"})
+        log_action(actor=None, action="PAYMENT_FAILED_ORDER_CANCELLED", target=payment, after={"status": normalized_status, "order_status": "CANCELLED"})
     return {"payment": payment, "reconciliation": None}
 
 
@@ -234,6 +242,57 @@ def process_webhook(*, provider_code, raw_body, headers):
     event.processed_at = timezone.now()
     event.save(update_fields=["processing_status", "processed_at"])
     return {"duplicate": False, "payment_id": str(payment.id), "reconciliation_required": bool(reconciliation), "reconciliation_id": str(reconciliation.id) if reconciliation else None}
+
+
+@transaction.atomic
+def process_pesoway_webhook(*, raw_body, headers):
+    """Reconcile a signed PesoWay event against its authoritative API record."""
+    adapter = get_adapter("pesoway")
+    event_data = adapter.verify_webhook(raw_body=raw_body, headers=headers)
+    if not event_data:
+        raise PaymentFailure({"code": "INVALID_WEBHOOK_SIGNATURE"})
+    event, created = WebhookEvent.objects.get_or_create(
+        provider_code="pesoway",
+        provider_event_id=event_data["event_id"],
+        defaults={"verified": True, "raw_body": raw_body.decode("utf-8")},
+    )
+    if not created:
+        return {"duplicate": True}
+    payment = Payment.objects.filter(provider_code="pesoway", provider_reference=event_data["provider_reference"]).first()
+    if not payment:
+        event.processing_status = "UNKNOWN_PAYMENT"
+        event.processed_at = timezone.now()
+        event.save(update_fields=["processing_status", "processed_at"])
+        raise PaymentFailure({"code": "UNKNOWN_PAYMENT"})
+    try:
+        intent = adapter.retrieve_payment_intent(payment.provider_reference)
+        provider_status = intent["status"]
+        merchant_reference = intent["merchant_reference"]
+        amount_minor = intent["amount_centavos"]
+        currency = intent["currency"].upper()
+    except (KeyError, TypeError, ValueError):
+        raise PaymentFailure({"code": "PESOWAY_STATUS_LOOKUP_FAILED"})
+    if str(intent.get("id")) != payment.provider_reference or merchant_reference != payment.provider_merchant_reference:
+        raise PaymentFailure({"code": "PAYMENT_REFERENCE_MISMATCH"})
+    if amount_minor != payment.amount_minor or currency != payment.currency:
+        raise PaymentFailure({"code": "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH"})
+    status_map = {"succeeded": "PAID", "canceled": "CANCELLED", "expired": "EXPIRED", "failed": "FAILED"}
+    normalized_status = status_map.get(provider_status, "PENDING")
+    payment.provider_status = provider_status
+    payment.save(update_fields=["provider_status", "updated_at"])
+    result = confirm_payment(
+        payment=payment,
+        provider_event_id=event_data["event_id"],
+        event_type=event_data["event_type"],
+        normalized_status=normalized_status,
+        webhook_event=event,
+        event_data={"amount_minor": amount_minor, "currency": currency, "merchant_reference": merchant_reference},
+    )
+    reconciliation = result["reconciliation"]
+    event.processing_status = "LATE_PAYMENT_REQUIRES_RECONCILIATION" if reconciliation else "PROCESSED"
+    event.processed_at = timezone.now()
+    event.save(update_fields=["processing_status", "processed_at"])
+    return {"duplicate": False, "payment_id": str(payment.id), "reconciliation_required": bool(reconciliation)}
 
 
 def _require_superadmin(actor):
