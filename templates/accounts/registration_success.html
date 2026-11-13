@@ -1,4 +1,236 @@
-{% extends 'base.html' %}{% block title %}Registration complete | BUILTASUPPLY{% endblock %}{% block content %}
-<section class="panel" aria-labelledby="success-title"><div class="status">REGISTRATION CONFIRMED</div><p aria-hidden="true" style="font-size:2rem;margin:0">✓</p>
-{% if kind == 'customer' %}<h1 id="success-title">Account Created Successfully</h1><p>Welcome to BUILTASUPPLY{% if name %}, {{ name }}{% endif %}. Your account has been created successfully.</p><p class="muted">Sign in to start browsing supplies.</p><a class="button" href="{% url 'accounts:login' %}">Sign In</a> <a class="button secondary" href="{% url 'shop-home' %}">Browse Supplies</a>
-{% else %}<h1 id="success-title">Application Submitted Successfully</h1><p>Your BUILTASUPPLY supplier application has been received.</p><p class="muted">Current status: <strong>Pending Review</strong>. You will be notified when the application is approved.</p><a class="button" href="{% url 'accounts:login' %}">Return to Login</a>{% endif %}</section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Registration complete | BUILTASUPPLY{% endblock %}
+{% block content %}
+<style>
+  :root {
+    --success-navy:#102a43;
+    --success-orange:#f26b38;
+    --success-yellow:#f4c95d;
+    --success-mint:#b8d8cf;
+    --success-paper:#f6f4ef;
+    --success-cream:#fbfaf7;
+    --success-line:#d9dfdc;
+    --success-muted:#5e7182;
+  }
+  body { background:var(--success-paper); }
+  .shell { max-width:1240px; padding:22px 30px 40px; }
+  body:has(.registration-success) .shell { min-height:calc(100vh - 88px); display:grid; align-items:center; }
+
+  @keyframes success-rise { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes success-draw { to { stroke-dashoffset:0; } }
+  @keyframes success-pulse {
+    0%,100% { transform:scale(1); box-shadow:0 0 0 0 rgba(244,201,93,.26); }
+    50% { transform:scale(1.025); box-shadow:0 0 0 16px rgba(244,201,93,0); }
+  }
+  @keyframes success-grid-drift { from { background-position:0 0,0 0; } to { background-position:32px 32px,-32px 0; } }
+
+  .registration-success {
+    position:relative;
+    isolation:isolate;
+    overflow:hidden;
+    display:grid;
+    grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);
+    width:100%;
+    min-height:590px;
+    border:1px solid var(--success-line);
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 22px 58px rgba(16,42,67,.1);
+    font-family:"Aptos","Segoe UI",sans-serif;
+  }
+  .success-copy {
+    position:relative;
+    z-index:2;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:clamp(42px,6vw,82px);
+    background:radial-gradient(circle at 7% 92%,rgba(244,201,93,.18),transparent 27%),var(--success-cream);
+    animation:success-rise .65s ease both;
+  }
+  .success-copy::before {
+    content:"PROJECT / ACCOUNT SETUP";
+    position:absolute;
+    top:26px;
+    right:30px;
+    color:rgba(16,42,67,.32);
+    font:700 .6rem/1 monospace;
+    letter-spacing:.15em;
+  }
+  .success-kicker {
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    align-self:flex-start;
+    color:var(--success-orange);
+    font:800 .72rem/1 monospace;
+    letter-spacing:.13em;
+    text-transform:uppercase;
+  }
+  .success-kicker::before { content:""; width:28px; height:2px; background:var(--success-orange); }
+  .success-copy h1 {
+    max-width:680px;
+    color:var(--success-navy);
+    font:700 clamp(3.2rem,6.7vw,6.2rem)/.88 "Bahnschrift SemiBold","Trebuchet MS",sans-serif;
+    letter-spacing:-.085em;
+    margin:24px 0 26px;
+  }
+  .success-lead { max-width:590px; color:var(--success-navy); font-size:1.06rem; line-height:1.65; margin:0; }
+  .success-lead strong { font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; }
+  .success-note { color:var(--success-muted); font-size:.9rem; line-height:1.55; margin:9px 0 0; }
+  .success-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:32px; }
+  .success-actions .button {
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    margin:0;
+    border-radius:999px;
+    padding:14px 22px;
+    transition:transform .2s ease,box-shadow .2s ease,background .2s ease;
+  }
+  .success-actions .button:first-child { background:var(--success-orange); box-shadow:0 9px 20px rgba(242,107,56,.22); }
+  .success-actions .button:first-child:hover { background:#d9572a; transform:translateY(-2px); }
+  .success-actions .secondary { color:var(--success-navy); border-color:#b9c6c4; background:transparent; }
+  .success-actions .secondary:hover { border-color:var(--success-navy); transform:translateY(-2px); }
+  .success-actions .button:focus-visible { outline:3px solid var(--success-yellow); outline-offset:3px; }
+  .success-actions .arrow { display:inline-block; transition:transform .2s ease; }
+  .success-actions .button:hover .arrow { transform:translate(3px,-3px); }
+
+  .success-progress {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:0;
+    max-width:610px;
+    border-top:1px solid var(--success-line);
+    margin-top:44px;
+    padding:20px 0 0;
+  }
+  .success-step { position:relative; min-width:0; padding-right:18px; }
+  .success-step:not(:last-child)::after { content:""; position:absolute; top:8px; right:13px; width:34px; border-top:1px solid #b9c6c4; }
+  .success-step b { display:block; color:var(--success-orange); font:800 .66rem/1 monospace; letter-spacing:.08em; margin-bottom:8px; }
+  .success-step span { color:var(--success-navy); font-size:.78rem; font-weight:750; }
+
+  .success-blueprint {
+    position:relative;
+    overflow:hidden;
+    display:grid;
+    place-items:center;
+    min-height:590px;
+    color:#fff;
+    background-color:var(--success-navy);
+    background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);
+    background-size:32px 32px;
+    animation:success-grid-drift 16s linear infinite;
+  }
+  .success-blueprint::before,.success-blueprint::after { content:""; position:absolute; border-radius:50%; }
+  .success-blueprint::before {
+    width:430px;
+    height:430px;
+    border:1px solid rgba(244,201,93,.34);
+    box-shadow:0 0 0 34px rgba(244,201,93,.055),0 0 0 70px rgba(244,201,93,.035);
+  }
+  .success-blueprint::after { width:245px; height:245px; border:1px dashed rgba(255,255,255,.24); }
+  .blueprint-label { position:absolute; top:27px; left:30px; color:rgba(255,255,255,.58); font:700 .62rem/1 monospace; letter-spacing:.18em; }
+  .blueprint-number { position:absolute; right:28px; bottom:23px; color:rgba(255,255,255,.46); font:700 .62rem/1 monospace; letter-spacing:.15em; }
+  .success-mark-wrap { position:relative; z-index:2; text-align:center; }
+  .success-mark {
+    display:grid;
+    place-items:center;
+    width:176px;
+    height:176px;
+    margin:auto;
+    border:1px solid rgba(255,255,255,.4);
+    border-radius:50%;
+    background:var(--success-yellow);
+    color:var(--success-navy);
+    box-shadow:13px 13px 0 var(--success-mint);
+    animation:success-pulse 3.6s 1s ease-in-out infinite;
+  }
+  .success-mark svg { width:86px; height:86px; overflow:visible; }
+  .success-mark circle,.success-mark path { fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; }
+  .success-mark circle { stroke-width:2; opacity:.35; }
+  .success-mark path { stroke-width:5; stroke-dasharray:80; stroke-dashoffset:80; animation:success-draw .75s .35s cubic-bezier(.65,0,.35,1) forwards; }
+  .mark-caption { color:rgba(255,255,255,.72); font-size:.76rem; letter-spacing:.1em; margin:30px 0 0; text-transform:uppercase; }
+  .mark-caption strong { display:block; color:#fff; font:700 1.08rem "Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:-.02em; margin-bottom:6px; text-transform:none; }
+
+  @media (max-width:850px) {
+    body:has(.registration-success) .shell { min-height:auto; }
+    .registration-success { grid-template-columns:1fr; }
+    .success-blueprint { grid-row:1; min-height:300px; }
+    .success-blueprint::before { width:300px; height:300px; }
+    .success-blueprint::after { width:190px; height:190px; }
+    .success-mark { width:138px; height:138px; box-shadow:10px 10px 0 var(--success-mint); }
+    .success-mark svg { width:68px; height:68px; }
+    .mark-caption { margin-top:23px; }
+    .success-copy { padding:48px clamp(28px,7vw,58px) 54px; }
+  }
+  @media (max-width:560px) {
+    .shell { padding:18px 17px 30px; }
+    .registration-success { border-radius:13px; }
+    .success-blueprint { min-height:245px; }
+    .success-copy { padding:40px 22px 34px; }
+    .success-copy::before { display:none; }
+    .success-copy h1 { font-size:clamp(2.75rem,14vw,4rem); margin:20px 0 22px; }
+    .success-lead { font-size:.98rem; }
+    .success-actions { flex-direction:column; margin-top:27px; }
+    .success-actions .button { justify-content:center; width:100%; }
+    .success-progress { gap:10px; margin-top:34px; padding-top:17px; }
+    .success-step { padding-right:0; }
+    .success-step:not(:last-child)::after { display:none; }
+    .success-step span { font-size:.68rem; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    .success-copy,.success-blueprint,.success-mark,.success-mark path { animation:none; }
+    .success-mark path { stroke-dashoffset:0; }
+    .success-actions .button,.success-actions .arrow { transition:none; }
+  }
+</style>
+
+<section class="registration-success" aria-labelledby="success-title">
+  <div class="success-copy">
+    <span class="success-kicker">Registration confirmed</span>
+    {% if kind == 'customer' %}
+      <h1 id="success-title">Account Created Successfully</h1>
+      <p class="success-lead">Welcome to BUILTASUPPLY{% if name %}, <strong>{{ name }}</strong>{% endif %}. Your account is ready for the work ahead.</p>
+      <p class="success-note">Sign in to start browsing dependable supplies for your next project.</p>
+      <div class="success-actions" aria-label="Next actions">
+        <a class="button" href="{% url 'accounts:login' %}">Sign in <span class="arrow" aria-hidden="true">↗</span></a>
+        <a class="button secondary" href="{% url 'shop-home' %}">Browse supplies <span class="arrow" aria-hidden="true">↗</span></a>
+      </div>
+      <div class="success-progress" aria-label="Account setup progress">
+        <div class="success-step"><b>01 / DONE</b><span>Account created</span></div>
+        <div class="success-step"><b>02 / NEXT</b><span>Sign in</span></div>
+        <div class="success-step"><b>03 / BUILD</b><span>Start sourcing</span></div>
+      </div>
+    {% else %}
+      <h1 id="success-title">Application submitted.</h1>
+      <p class="success-lead">Your BUILTASUPPLY supplier application has been received{% if name %} for <strong>{{ name }}</strong>{% endif %}.</p>
+      <p class="success-note">Current status: <strong>Pending Review</strong>. We’ll notify you when your supplier workspace is approved.</p>
+      <div class="success-actions" aria-label="Next actions">
+        <a class="button" href="{% url 'accounts:login' %}">Return to login <span class="arrow" aria-hidden="true">↗</span></a>
+        <a class="button secondary" href="{% url 'home' %}">Back to home</a>
+      </div>
+      <div class="success-progress" aria-label="Supplier application progress">
+        <div class="success-step"><b>01 / DONE</b><span>Application sent</span></div>
+        <div class="success-step"><b>02 / REVIEW</b><span>Approval pending</span></div>
+        <div class="success-step"><b>03 / SELL</b><span>Open workspace</span></div>
+      </div>
+    {% endif %}
+  </div>
+
+  <aside class="success-blueprint" aria-label="Registration completed">
+    <span class="blueprint-label">ACCOUNT PLAN / COMPLETE</span>
+    <div class="success-mark-wrap">
+      <div class="success-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28"></circle><path d="M18 33l9 9 20-22"></path></svg>
+      </div>
+      {% if kind == 'customer' %}
+        <p class="mark-caption"><strong>You’re all set.</strong>Ready when you are</p>
+      {% else %}
+        <p class="mark-caption"><strong>Application received.</strong>Review is the next step</p>
+      {% endif %}
+    </div>
+    <span class="blueprint-number">BUILTASUPPLY / 01</span>
+  </aside>
+</section>
+{% endblock %}
