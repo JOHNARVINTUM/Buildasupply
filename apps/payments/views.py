@@ -4,12 +4,16 @@ from secrets import token_urlsafe
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 
 from apps.orders.models import MasterOrder
 from .forms import DemoPaymentForm
 from .models import Payment
-from .services import PaymentFailure, initiate_payment, select_cod
+from .adapters import get_adapter
+from .services import PaymentFailure, initiate_payment, process_pesoway_webhook, select_cod
 
 
 logger = logging.getLogger(__name__)
@@ -56,6 +60,11 @@ def payment_select(request, order_id):
     order = _owned_order(customer, order_id)
     existing = order.payments.filter(status__in=["PENDING", "AUTHORIZED"]).first()
     if existing and request.method == "GET":
+        if existing.provider_code == "pesoway" and existing.provider_reference:
+            try:
+                return redirect(get_adapter("pesoway").checkout_url(existing.provider_reference))
+            except ValueError:
+                pass
         return redirect("shop-payment-instructions", pk=existing.pk)
     key = _payment_key(request, order)
     if request.method == "POST":
@@ -86,6 +95,35 @@ def payment_select(request, order_id):
     else:
         form = DemoPaymentForm(initial={"idempotency_key": key})
     return render(request, "payments/select.html", _payment_context(order, form), status=400 if request.method == "POST" and form.errors else 200)
+
+
+@login_required
+def pesoway_start(request, order_id):
+    """Create a backend-owned PesoWay intent, then send the buyer to its hosted simulation."""
+    if request.method != "POST":
+        return redirect("shop-payment-select", order_id=order_id)
+    customer = _customer_for(request)
+    order = _owned_order(customer, order_id)
+    try:
+        result = initiate_payment(
+            customer=customer,
+            order=order,
+            provider_code="pesoway",
+            method_category="HOSTED_CHECKOUT",
+            idempotency_key=_payment_key(request, order),
+            return_url=request.build_absolute_uri(reverse("pesoway-complete")),
+        )
+    except PaymentFailure as error:
+        code = error.message_dict.get("code", "")
+        if isinstance(code, list):
+            code = code[0]
+        messages.error(request, PAYMENT_MESSAGES.get(code, "PesoWay payment could not be started. Please review your order and try again."))
+        return redirect("shop-payment-select", order_id=order.pk)
+    except ValueError:
+        logger.exception("PesoWay initiation failed")
+        messages.error(request, "PesoWay is unavailable. Please try again later or choose another payment option.")
+        return redirect("shop-payment-select", order_id=order.pk)
+    return redirect(result["instruction_url"])
 
 
 @login_required
@@ -126,3 +164,36 @@ def payment_status(request, pk):
     payment = _owned_payment(_customer_for(request), pk)
     attempts = payment.attempts.order_by("-created_at")
     return render(request, "payments/status.html", {"payment": payment, "attempts": attempts})
+
+
+@login_required
+def pesoway_complete(request):
+    """Navigation-only return endpoint; the webhook remains the payment authority."""
+    customer = _customer_for(request)
+    payment_intent = request.GET.get("payment_intent", "")
+    payment = get_object_or_404(
+        Payment.objects.select_related("master_order"),
+        provider_code="pesoway",
+        provider_reference=payment_intent,
+        master_order__customer=customer,
+    )
+    return render(request, "payments/pesoway_complete.html", {"payment": payment})
+
+
+@csrf_exempt
+def pesoway_webhook(request):
+    """Public provider endpoint. Errors intentionally reveal no payment information."""
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    try:
+        process_pesoway_webhook(raw_body=request.body, headers=request.headers)
+    except PaymentFailure as error:
+        code = error.message_dict.get("code", "")
+        if isinstance(code, list):
+            code = code[0]
+        logger.warning("PesoWay webhook rejected: %s", code)
+        return HttpResponse(status=400 if code == "INVALID_WEBHOOK_SIGNATURE" else 500)
+    except Exception:
+        logger.exception("Unexpected PesoWay webhook processing failure")
+        return HttpResponse(status=500)
+    return HttpResponse(status=204)

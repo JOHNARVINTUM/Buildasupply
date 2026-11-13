@@ -1,0 +1,7 @@
+{% extends 'customers/layout.html' %}
+{% load currency %}
+{% block title %}PesoWay payment verification · BUILTASUPPLY{% endblock %}
+{% block customer_location %}Payment verification{% endblock %}
+{% block customer_content %}
+<section class="panel narrow"><span class="eyebrow">PesoWay simulation / {{ payment.master_order.order_number }}</span><h1>Verifying your<br>payment.</h1><p class="money-row total"><strong>Amount</strong><strong class="price">{{ payment.amount_minor|php }}</strong></p><span class="badge">{{ payment.status }}</span>{% if payment.status == 'PAID' %}<p class="notice" role="status">Payment verified. Your order is being processed by its suppliers.</p>{% elif payment.status == 'CANCELLED' %}<p class="notice" role="status">The simulated payment was canceled. No payment was confirmed.</p>{% elif payment.status == 'EXPIRED' %}<p class="notice" role="status">The simulated payment expired. No payment was confirmed.</p>{% elif payment.status == 'FAILED' %}<p class="notice" role="status">The simulated payment failed. No payment was confirmed.</p>{% else %}<p class="notice" role="status">We are waiting for PesoWay's signed webhook and status verification. Returning here never marks an order as paid.</p>{% endif %}<p class="muted">PesoWay is a simulation environment; it does not move real money.</p><div class="actions"><a class="button" href="{% url 'shop-payment' payment.pk %}">Refresh verified status ↻</a><a class="button secondary" href="{% url 'shop-order-detail' payment.master_order.pk %}">Back to order</a></div></section>
+{% endblock %}
