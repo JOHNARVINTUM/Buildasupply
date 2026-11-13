@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
+from apps.accounts.services import register_customer, register_staff_buyer
+from apps.orders.models import MasterOrder
 User=get_user_model()
 class AdminOperationsTests(TestCase):
     def setUp(self):self.admin=User.objects.create_superuser("admin@ops.com","Strongpass123!");self.customer=User.objects.create_user("customer@ops.com","Strongpass123!")
@@ -30,3 +32,54 @@ class AdminOperationsTests(TestCase):
         _, supplier=register_supplier(email="items@ops.com",password1="Strongpass123!",full_name="Owner",phone="1",legal_name="Items Legal",display_name="Items Supply",business_phone="1")
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get(f"/operations/suppliers/{supplier.id}/products/").status_code,200)
+
+    def test_superadmin_can_create_staff_buyer_with_individual_customer_profile(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post("/operations/staff-buyers/", {
+            "full_name": "Assigned Purchaser",
+            "email": "staff-buyer@ops.com",
+            "phone": "09170000000",
+            "password1": "Strongpass123!",
+            "password2": "Strongpass123!",
+        })
+
+        self.assertRedirects(response, "/operations/staff-buyers/")
+        buyer = User.objects.get(email="staff-buyer@ops.com")
+        self.assertEqual(buyer.primary_role, User.GlobalRole.STAFF_BUYER)
+        self.assertTrue(hasattr(buyer, "customer_profile"))
+        self.client.force_login(buyer)
+        self.assertEqual(self.client.get("/shop/cart/").status_code, 200)
+        self.assertEqual(self.client.get("/account/addresses/").status_code, 200)
+
+    def test_staff_purchase_monitoring_shows_only_staff_buyer_orders(self):
+        staff_buyer = register_staff_buyer(
+            email="buyer-staff@ops.com",
+            password1="Strongpass123!",
+            full_name="Staff Buyer",
+            phone="09170000001",
+            actor=self.admin,
+        )
+        regular_customer = register_customer(
+            email="regular@ops.com",
+            password1="Strongpass123!",
+            full_name="Regular Customer",
+            phone="09170000002",
+        )
+        staff_order = MasterOrder.objects.create(
+            order_number="STAFF-ORDER-1", customer=staff_buyer.customer_profile,
+            subtotal_minor=12500, total_minor=12500,
+        )
+        MasterOrder.objects.create(
+            order_number="CUSTOMER-ORDER-1", customer=regular_customer.customer_profile,
+            subtotal_minor=25000, total_minor=25000,
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get("/operations/staff-purchases/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, staff_order.order_number)
+        self.assertNotContains(response, "CUSTOMER-ORDER-1")
+        self.client.force_login(staff_buyer)
+        self.assertEqual(self.client.get("/operations/staff-purchases/").status_code, 302)

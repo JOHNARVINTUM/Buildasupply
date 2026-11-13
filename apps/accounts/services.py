@@ -20,6 +20,30 @@ def register_customer(*, email, password1, phone, first_name="", last_name="", f
     tier = MembershipTier.objects.filter(code="STANDARD", is_active=True).first()
     if tier: MembershipAssignment.objects.create(customer=customer, tier=tier)
     log_action(actor=user, action="USER_CREATED", target=user); return user
+
+
+@transaction.atomic
+def register_staff_buyer(*, email, password1, full_name, phone, actor):
+    """Create an individually authenticated purchasing account for staff.
+
+    This account is local to BUILTASUPPLY. It deliberately does not copy any
+    credentials or profile data from an external maintenance system.
+    """
+    user = User.objects.create_user(
+        email=email,
+        password=password1,
+        primary_role=User.GlobalRole.STAFF_BUYER,
+        full_name=full_name,
+        phone=phone,
+    )
+    CustomerProfile.objects.create(user=user, full_name=full_name, phone=phone)
+    log_action(
+        actor=actor,
+        action="STAFF_BUYER_CREATED",
+        target=user,
+        after={"primary_role": user.primary_role, "account_status": user.account_status},
+    )
+    return user
 @transaction.atomic
 def register_supplier(*, email, password1, phone, legal_name, display_name, business_phone, first_name="", last_name="", full_name="", business_address="", business_registration_number=None, accept_terms=True, **_):
     if not accept_terms: raise ValueError("Terms acceptance is required.")

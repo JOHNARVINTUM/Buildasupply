@@ -29,7 +29,7 @@ PAYMENT_MESSAGES = {
 
 def _customer_for(request):
     if (
-        request.user.primary_role != "CUSTOMER"
+        request.user.primary_role not in {"CUSTOMER", "STAFF_BUYER"}
         or request.user.account_status != "ACTIVE"
         or not hasattr(request.user, "customer_profile")
     ):

@@ -15,7 +15,7 @@ body:has(.operations-workspace){background:#eef4f9;color:#20384d;isolation:isola
 </style>
 <div class="operations-workspace">
   {% include 'operations/includes/ambient_blueprints.html' %}
-  <div class="operations-rolebar"><span>Superadmin / Operations console</span><nav aria-label="Operations sections"><a href="{% url 'operations-dashboard' %}">Dashboard</a><a href="{% url 'operations-users' %}">Users</a><a href="{% url 'operations-suppliers' %}">Suppliers</a><a href="{% url 'operations-cod-orders' %}">COD orders</a><a href="{% url 'operations-reconciliations' %}">Reconciliation</a><a href="{% url 'operations-audit' %}">Audit</a></nav></div>
+  <div class="operations-rolebar"><span>Superadmin / Operations console</span><nav aria-label="Operations sections"><a href="{% url 'operations-dashboard' %}">Dashboard</a><a href="{% url 'operations-users' %}">Users</a><a href="{% url 'operations-staff-buyers' %}">Staff buyers</a><a href="{% url 'operations-staff-purchases' %}">Staff purchases</a><a href="{% url 'operations-suppliers' %}">Suppliers</a><a href="{% url 'operations-cod-orders' %}">COD orders</a><a href="{% url 'operations-reconciliations' %}">Reconciliation</a><a href="{% url 'operations-audit' %}">Audit</a></nav></div>
   <nav class="operations-trail" aria-label="Breadcrumb"><a href="{% url 'operations-dashboard' %}">Operations</a><span aria-hidden="true">/</span><span>{% block operations_location %}Control center{% endblock %}</span></nav>
   <div class="operations-content">{% block operations_content %}{% endblock %}</div>
   <footer class="operations-footnote"><span>BUILTASUPPLY / Control. Verify. Resolve.</span><span>Authorized superadmin workspace</span></footer>

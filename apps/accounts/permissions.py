@@ -3,7 +3,8 @@ from apps.suppliers.models import SupplierStaffMembership
 class IsActiveAccount(BasePermission):
     def has_permission(self, request, view): return bool(request.user and request.user.is_authenticated and request.user.account_status == "ACTIVE")
 class IsCustomer(IsActiveAccount):
-    def has_permission(self, request, view): return super().has_permission(request, view) and request.user.primary_role == "CUSTOMER"
+    """Permission for accounts that use the customer cart and checkout flow."""
+    def has_permission(self, request, view): return super().has_permission(request, view) and request.user.primary_role in {"CUSTOMER", "STAFF_BUYER"}
 class IsSupplier(IsActiveAccount):
     def has_permission(self, request, view): return super().has_permission(request, view) and request.user.primary_role == "SUPPLIER"
 class IsApprovedSupplier(IsSupplier):

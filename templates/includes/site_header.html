@@ -20,7 +20,7 @@
   <nav aria-label="Main navigation">
     <a class="about-nav-link" href="{% url 'about' %}"{% if current == 'about' %} aria-current="page"{% endif %}>About us</a>
     {% if user.is_authenticated %}
-      {% if user.primary_role == 'CUSTOMER' %}
+      {% if user.primary_role in 'CUSTOMER STAFF_BUYER' %}
         <a href="{% url 'shop-browse' %}"{% if current == 'shop-browse' or current == 'shop-home' %} aria-current="page"{% endif %}>Supplies</a>
         <a href="{% url 'shop-cart' %}"{% if current == 'shop-cart' %} aria-current="page"{% endif %}>Cart</a>
         <a href="{% url 'shop-orders' %}"{% if current == 'shop-orders' %} aria-current="page"{% endif %}>Orders</a>

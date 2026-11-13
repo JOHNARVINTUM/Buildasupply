@@ -52,6 +52,33 @@ class CustomerRegistrationForm(forms.Form):
         if data.get("password1") != data.get("password2"): self.add_error("password2", "Passwords do not match.")
         elif data.get("password1"): validate_password(data["password1"], user=User(email=data.get("email", "")))
         return data
+
+
+class StaffBuyerCreateForm(forms.Form):
+    """Superadmin-only account creation form for maintenance purchasing staff."""
+
+    full_name = forms.CharField(max_length=160)
+    email = forms.EmailField(widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+    phone = forms.CharField(max_length=32, validators=[PH_PHONE], widget=forms.TelInput(attrs={"autocomplete": "tel", "inputmode": "tel"}))
+    password1 = forms.CharField(label="Temporary password", widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "minlength": 12}))
+    password2 = forms.CharField(label="Confirm temporary password", widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "minlength": 12}))
+
+    def clean_full_name(self): return normalized_text(self.cleaned_data["full_name"], "Full name")
+
+    def clean_email(self):
+        email = User.objects.normalize_email(self.cleaned_data["email"].strip()).lower()
+        if User.objects.filter(email=email).exists(): raise forms.ValidationError("An account already exists for this email.")
+        return email
+
+    def clean_phone(self): return normalize_phone(self.cleaned_data["phone"])
+
+    def clean(self):
+        data = super().clean()
+        if data.get("password1") != data.get("password2"):
+            self.add_error("password2", "Temporary passwords do not match.")
+        elif data.get("password1"):
+            validate_password(data["password1"], user=User(email=data.get("email", "")))
+        return data
 class SupplierRegistrationForm(CustomerRegistrationForm):
     legal_name = forms.CharField(label="Legal business name", max_length=255)
     display_name = forms.CharField(label="Display/business name", max_length=255)
