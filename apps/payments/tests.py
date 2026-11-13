@@ -9,7 +9,8 @@ from apps.catalog.services import create_product,moderate_product,submit_for_rev
 from apps.carts.services import add_item
 from apps.customers.models import CustomerAddress
 from apps.inventory.services import record_movement
-from apps.orders.services import checkout
+from apps.orders.services import checkout,transition_supplier_order
+from apps.wallets.services import balances
 from apps.wallets.models import SettlementRecord
 from .models import Payment, PaymentReconciliation, RefundWalletReversal, WebhookEvent
 from .services import PaymentFailure, approve_refund, complete_refund, confirm_payment, create_refund, initiate_payment, initiate_refund, process_pesoway_webhook, process_refund_webhook, process_webhook, resolve_payment_reconciliation
@@ -82,6 +83,12 @@ class PaymentTests(TestCase):
         refund=self._approved_refund(payment,10000,"refund-total")
         complete_refund(refund=refund,provider_event_id="refund-event-total",event_type="SUCCESS",normalized_status="COMPLETED")
         payment.refresh_from_db();refund.refresh_from_db();self.assertEqual(refund.status,"COMPLETED");self.assertEqual(payment.refunded_minor,10000);self.assertEqual(payment.status,"REFUNDED")
+
+    def test_fully_refunded_online_order_never_increases_lifetime_earned(self):
+        payment=Payment.objects.get(pk=self._payment()["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-paid-refunded-before-acceptance",event_type="SUCCESS",normalized_status="PAID")
+        refund=self._approved_refund(payment,10000,"refund-before-acceptance");complete_refund(refund=refund,provider_event_id="refund-event-before-acceptance",event_type="SUCCESS",normalized_status="COMPLETED")
+        supplier_order=payment.master_order.supplier_orders.get();transition_supplier_order(supplier_order=supplier_order,actor=User.objects.get(email="owner@payment.com"),next_status="CONFIRMED")
+        wallet=supplier_order.supplier.wallets.get();self.assertEqual(balances(wallet)["pending"],0);self.assertEqual(balances(wallet)["lifetime_earned"],0)
 
     def test_refund_rejects_non_admin_and_excessive_item_quantity(self):
         payment=Payment.objects.get(pk=self._payment()["payment_id"]);confirm_payment(payment=payment,provider_event_id="evt-paid-auth",event_type="SUCCESS",normalized_status="PAID")
