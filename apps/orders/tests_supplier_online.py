@@ -10,6 +10,7 @@ from apps.inventory.services import record_movement
 from apps.orders.services import checkout
 from apps.payments.models import Payment
 from apps.payments.services import confirm_payment, initiate_payment
+from apps.wallets.services import balances
 
 
 User = get_user_model()
@@ -129,6 +130,11 @@ class SupplierOnlinePaidBrowserTests(TestCase):
         )
         self.supplier_order.refresh_from_db()
         self.assertEqual(self.supplier_order.status, "COMPLETED")
+        wallet = self.supplier_order.supplier.wallets.get()
+        self.assertEqual(balances(wallet)["pending"], 0)
+        self.assertEqual(balances(wallet)["available"], 10000)
+        self.assertEqual(balances(wallet)["lifetime_earned"], 10000)
+        self.assertEqual(wallet.entries.filter(entry_type="SETTLEMENT").count(), 2)
 
     def test_cod_collection_endpoints_cannot_be_used_for_an_online_paid_order(self):
         response = self.client.post(f"/supplier/orders/{self.supplier_order.pk}/accept/")
