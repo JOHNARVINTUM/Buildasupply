@@ -104,6 +104,9 @@ def transition_supplier_order(*,supplier_order,actor,next_status,delivery_data=N
     if next_status=="CONFIRMED" and supplier_order.master_order.payment_status=="PAID":
         from apps.wallets.services import accept_online_payment_earnings
         accept_online_payment_earnings(supplier_order,actor=actor)
+    elif next_status=="COMPLETED" and supplier_order.master_order.payment_status=="PAID":
+        from apps.wallets.services import release_settlement
+        release_settlement(supplier_order.settlement,actor=actor)
     event_type={"PREPARING":"order.preparing","READY_FOR_DELIVERY":"order.ready","SHIPPED":"order.dispatched","DELIVERED":"order.delivered"}.get(next_status)
     if event_type:
         from apps.notifications.services import emit

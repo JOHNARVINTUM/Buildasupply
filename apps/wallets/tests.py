@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import SimpleTestCase,TestCase
 from apps.accounts.services import register_customer,register_supplier
 from apps.catalog.models import Category
@@ -34,6 +35,22 @@ class WalletTests(TestCase):
         sale.refresh_from_db();self.assertEqual(sale.status,"POSTED")
         accept_online_payment_earnings(supplier_order,actor=self.owner)
         self.assertEqual(balances(wallet)["lifetime_earned"],20000);self.assertEqual(wallet.entries.filter(entry_type="SALE").count(),1)
+    def test_online_order_completion_releases_pending_balance_once(self):
+        confirm_payment(payment=self.payment,provider_event_id="wallet-completion",event_type="SUCCESS",normalized_status="PAID");wallet=self.supplier.wallets.get();supplier_order=self.payment.master_order.supplier_orders.get()
+        transition_supplier_order(supplier_order=supplier_order,actor=self.owner,next_status="CONFIRMED")
+        supplier_order.status="DELIVERED";supplier_order.save(update_fields=["status"])
+        transition_supplier_order(supplier_order=supplier_order,actor=self.owner,next_status="COMPLETED")
+        self.assertEqual(balances(wallet)["pending"],0);self.assertEqual(balances(wallet)["available"],20000);self.assertEqual(balances(wallet)["lifetime_earned"],20000)
+        settlement=wallet.settlements.get();self.assertEqual(settlement.status,"RELEASED");self.assertEqual(wallet.entries.filter(entry_type="SETTLEMENT").count(),2)
+        release_settlement(settlement,actor=self.owner)
+        self.assertEqual(wallet.entries.filter(entry_type="SETTLEMENT").count(),2);self.assertEqual(balances(wallet)["available"],20000)
+    def test_completed_online_settlement_backfill_releases_existing_pending_balance(self):
+        confirm_payment(payment=self.payment,provider_event_id="wallet-backfill",event_type="SUCCESS",normalized_status="PAID");wallet=self.supplier.wallets.get();supplier_order=self.payment.master_order.supplier_orders.get()
+        supplier_order.status="COMPLETED";supplier_order.save(update_fields=["status"])
+        call_command("release_completed_online_settlements")
+        self.assertEqual(balances(wallet)["pending"],0);self.assertEqual(balances(wallet)["available"],20000);self.assertEqual(wallet.entries.filter(entry_type="SETTLEMENT").count(),2)
+        call_command("release_completed_online_settlements")
+        self.assertEqual(wallet.entries.filter(entry_type="SETTLEMENT").count(),2)
     def test_wallet_page_formats_centavos_and_pending_label(self):
         confirm_payment(payment=self.payment,provider_event_id="wallet-display",event_type="SUCCESS",normalized_status="PAID");self.client.force_login(self.owner)
         response=self.client.get("/supplier/wallet/");self.assertEqual(response.status_code,200);self.assertContains(response,"₱200.00");self.assertContains(response,"₱0.00");self.assertContains(response,"Pending...")
