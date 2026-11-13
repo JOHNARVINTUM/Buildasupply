@@ -34,10 +34,11 @@ def product_create(request):
         if not category:
             category, _=Category.objects.get_or_create(slug="general-supplies", defaults={"name":"General Supplies", "description":"General marketplace supplies", "is_active":True})
         try:
-            product=create_product(supplier=membership.supplier, actor=request.user, category=category, name=form.cleaned_data["name"], sku=form.cleaned_data["sku"], description=form.cleaned_data["description"], unit_of_measure=form.cleaned_data["unit_of_measure"], minimum_order_quantity=form.cleaned_data["minimum_order_quantity"], amount_minor=form.amount_minor())
+            product=create_product(supplier=membership.supplier, actor=request.user, category=category, name=form.cleaned_data["name"], sku=form.cleaned_data["sku"], description=form.cleaned_data["description"], unit_of_measure=form.cleaned_data["unit_of_measure"], minimum_order_quantity=form.cleaned_data["minimum_order_quantity"], amount_minor=form.amount_minor(), publish_for_approved_supplier=True)
             if form.cleaned_data["opening_stock"]:
                 record_movement(inventory_id=product.inventory.id, actor=request.user, movement_type="RESTOCK", quantity_delta=form.cleaned_data["opening_stock"], reason="Opening stock")
-            messages.success(request, "Supply draft created. Submit it for review when ready.")
+            if product.status == "APPROVED": messages.success(request, "Supply published and is now available to customers.")
+            else: messages.success(request, "Supply draft created. Submit it for review when ready.")
             return redirect("supplier-products")
         except ValidationError as exc: form.add_error(None, exc)
     return render(request, "catalog/product_form.html", {"form":form, "supplier":membership.supplier})

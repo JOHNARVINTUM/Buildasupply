@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
+from django.db import DatabaseError
 from django.test import TestCase
+from unittest.mock import patch
 from rest_framework.test import APIClient
 from apps.accounts.services import register_customer, register_supplier
 from apps.catalog.models import Category
-from apps.catalog.services import create_product, moderate_product, submit_for_review, transition_supplier
+from apps.catalog.services import create_product, moderate_product, submit_for_review, transition_supplier, update_product, update_product_price
 from apps.inventory.services import record_movement
 from .services import add_item, get_active_cart, validate_cart
 User=get_user_model()
@@ -21,6 +23,23 @@ class CustomerCatalogCartTests(TestCase):
         self.assertEqual(response.status_code,200);self.assertEqual(response.data["count"],1)
         self.supplier.operational_status="INACTIVE";self.supplier.save()
         self.assertEqual(APIClient().get("/api/v1/catalog/products/").data["count"],0)
+    def test_approved_supplier_product_is_published_and_remains_visible_after_edit(self):
+        product=create_product(supplier=self.supplier,actor=self.owner,name="Primer",sku="P2",category=self.category,description="Base coat",unit_of_measure="can",minimum_order_quantity=1,amount_minor=20000,publish_for_approved_supplier=True)
+        self.assertEqual(product.status,"APPROVED")
+        record_movement(inventory_id=product.inventory.id,actor=self.owner,movement_type="RESTOCK",quantity_delta=3,reason="Opening")
+        self.assertEqual(APIClient().get("/api/v1/catalog/products/?q=Primer").data["count"],1)
+        update_product(product=product,actor=self.owner,description="Updated base coat")
+        update_product_price(product=product,actor=self.owner,amount_minor=21000)
+        product.refresh_from_db()
+        self.assertEqual(product.status,"APPROVED")
+        response=APIClient().get("/api/v1/catalog/products/?q=Primer")
+        self.assertEqual(response.data["count"],1)
+        self.assertEqual(response.data["results"][0]["price_minor"],21000)
+    def test_catalog_api_reports_database_failures_instead_of_an_empty_result(self):
+        with patch("apps.carts.api_views.customer_catalog_queryset",side_effect=DatabaseError("offline")):
+            response=APIClient().get("/api/v1/catalog/products/")
+        self.assertEqual(response.status_code,503)
+        self.assertIn("temporarily unavailable",response.data["detail"])
     def test_cart_moq_price_change_and_customer_isolation(self):
         item=add_item(customer=self.customer.customer_profile,product=self.product,quantity=2)
         cart=get_active_cart(self.customer.customer_profile);self.assertEqual(cart.items.count(),1)
@@ -58,6 +77,14 @@ class CartBrowserWorkflowTests(CustomerCatalogCartTests):
         self.assertEqual(response.status_code, 302)
         item = cart.items.get()
         self.assertEqual(item.quantity, 4)
+
+    def test_browse_distinguishes_a_catalog_failure_from_an_empty_catalog(self):
+        with patch("apps.carts.views.customer_catalog_queryset",side_effect=DatabaseError("offline")):
+            response=self.client.get("/shop/browse/")
+        self.assertEqual(response.status_code,503)
+        self.assertContains(response,"We couldn't load the supplies.",status_code=503)
+        self.assertNotContains(response,"0 products shown",status_code=503)
+        self.assertNotContains(response,"No supplies are currently available",status_code=503)
 
     def test_add_to_cart_rejects_invalid_moq_and_stock(self):
         response = self.client.post(self._add_url(), {"quantity": 1})

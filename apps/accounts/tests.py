@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.customers.models import CustomerProfile
 from apps.memberships.models import MembershipTier
 from apps.suppliers.models import Supplier, SupplierStaffMembership
-from .services import register_supplier, set_supplier_approval
+from .services import register_customer, register_supplier, set_supplier_approval
 
 User = get_user_model()
 
@@ -114,3 +114,79 @@ class SupplierIsolationTests(TestCase):
         self.assertEqual(self.client.get(f"/api/v1/suppliers/{self.b.id}/scope/").status_code, 200)
     def test_one_active_supplier_membership_per_user(self):
         with self.assertRaises(Exception): SupplierStaffMembership.objects.create(supplier=self.b, user=self.a_user, role="MANAGER")
+
+
+class EditableProfileTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.customer = register_customer(email="profile-customer@example.com", password1="Strongpass123!", full_name="Original Customer", phone="+639170000000")
+        cls.owner, cls.supplier = register_supplier(email="profile-supplier@example.com", password1="Strongpass123!", full_name="Original Owner", phone="+639170000001", legal_name="Profile Legal", display_name="Profile Supplies", business_phone="+639170000002")
+        cls.admin = User.objects.create_superuser("profile-admin@example.com", "Strongpass123!")
+
+    def test_each_role_can_save_and_reload_own_personal_details(self):
+        for account in (self.customer, self.owner, self.admin):
+            with self.subTest(role=account.primary_role):
+                self.client.force_login(account)
+                response = self.client.get("/profile/")
+                workspace = {"CUSTOMER": "customer", "SUPPLIER": "supplier", "SUPERADMIN": "operations"}[account.primary_role]
+                self.assertContains(response, f'class="{workspace}-workspace"')
+                self.assertContains(response, f'class="{workspace}-blueprint-background"')
+                self.assertEqual(response.context["form"]["full_name"].value(), account.full_name)
+                self.assertEqual(response.context["form"]["phone"].value(), account.phone)
+                response = self.client.post("/profile/", {"full_name": "  Updated   Name  ", "phone": "0917-123-4567"}, follow=True)
+                self.assertRedirects(response, "/profile/")
+                self.assertContains(response, "Your profile has been updated.")
+                account.refresh_from_db()
+                self.assertEqual(account.full_name, "Updated Name")
+                self.assertEqual(account.phone, "+639171234567")
+                self.client.logout()
+                self.assertTrue(self.client.login(username=account.email, password="Strongpass123!"))
+                response = self.client.get("/profile/")
+                self.assertContains(response, 'value="Updated Name"')
+                self.assertContains(response, 'value="+639171234567"')
+        self.customer.customer_profile.refresh_from_db()
+        self.assertEqual(self.customer.customer_profile.full_name, "Updated Name")
+        self.supplier.refresh_from_db()
+        self.assertEqual(self.supplier.phone, "+639170000002")
+        self.assertEqual(self.supplier.contact_name, "Original Owner")
+
+    def test_invalid_and_empty_submissions_do_not_save(self):
+        self.client.force_login(self.customer)
+        for data in ({}, {"full_name": "   ", "phone": "wrong"}, {"full_name": "x" * 161, "phone": "0917"}):
+            with self.subTest(data=data):
+                response = self.client.post("/profile/", data)
+                self.assertTrue(response.context["form"].errors)
+                self.customer.refresh_from_db()
+                self.assertEqual(self.customer.full_name, "Original Customer")
+                self.assertEqual(self.customer.phone, "+639170000000")
+
+    def test_forged_ownership_and_protected_fields_are_ignored(self):
+        self.client.force_login(self.customer)
+        old_password = self.customer.password
+        response = self.client.post(f"/profile/?user_id={self.owner.pk}", {"user_id": str(self.owner.pk), "id": str(self.admin.pk), "full_name": "My Name", "phone": "09171234567", "email": "attacker@example.com", "primary_role": "SUPERADMIN", "account_status": "SUSPENDED", "is_staff": True, "is_superuser": True, "password": "hacked", "approval_status": "APPROVED"})
+        self.assertEqual(response.status_code, 302)
+        self.customer.refresh_from_db()
+        self.owner.refresh_from_db()
+        self.supplier.refresh_from_db()
+        self.assertEqual(self.customer.full_name, "My Name")
+        self.assertEqual(self.owner.full_name, "Original Owner")
+        self.assertEqual(self.customer.email, "profile-customer@example.com")
+        self.assertEqual(self.customer.primary_role, "CUSTOMER")
+        self.assertEqual(self.customer.account_status, "ACTIVE")
+        self.assertFalse(self.customer.is_staff or self.customer.is_superuser)
+        self.assertEqual(self.customer.password, old_password)
+        self.assertEqual(self.supplier.approval_status, "PENDING_REVIEW")
+
+    def test_anonymous_and_csrf_requests_cannot_save(self):
+        from django.test import Client
+        self.assertRedirects(self.client.post("/profile/", {}), "/login/?next=/profile/")
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.customer)
+        self.assertEqual(csrf_client.post("/profile/", {"full_name": "Changed", "phone": "09171234567"}).status_code, 403)
+
+    def test_cancel_reloads_saved_values_without_mutation(self):
+        self.client.force_login(self.customer)
+        response = self.client.get("/profile/")
+        self.assertContains(response, 'href="/profile/">Cancel</a>')
+        self.customer.refresh_from_db()
+        self.assertEqual(self.customer.full_name, "Original Customer")

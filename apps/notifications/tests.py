@@ -6,6 +6,33 @@ from .models import DomainEvent, NotificationPreference
 from .services import emit,process, supplier_recipient_ids, superadmin_recipient_ids
 User=get_user_model()
 class NotificationTests(TestCase):
+    def test_role_notification_pages_share_cards_and_keep_notifications_private(self):
+        from apps.accounts.services import register_customer, register_supplier
+        from django.utils import timezone
+        customer=register_customer(email="design-customer@example.com",password1="Strongpass123!",full_name="Customer",phone="1")
+        owner,_=register_supplier(email="design-supplier@example.com",password1="Strongpass123!",full_name="Owner",phone="1",legal_name="Design Legal",display_name="Design Supplies",business_phone="1")
+        admin=User.objects.create_superuser("design-admin@example.com","Strongpass123!")
+        for user,workspace in ((customer,"customer"),(owner,"supplier"),(admin,"operations")):
+            with self.subTest(role=user.primary_role):
+                self.client.force_login(user)
+                empty=self.client.get("/notifications/")
+                self.assertContains(empty,"You're all caught up.")
+                self.assertContains(empty,f'class="{workspace}-blueprint-background"')
+                self.assertContains(empty,'class="notification-center"')
+                if user != customer:
+                    self.assertContains(empty,"Back to dashboard")
+                for read in (False,True):
+                    event=DomainEvent.objects.create(event_type="test.notification",object_type="test")
+                    Notification.objects.create(recipient=user,event=event,event_type=event.event_type,related_type="test",title=f"Private {user.primary_role} {read}",body="First line\nSecond line",link="/profile/",read_at=timezone.now() if read else None)
+                response=self.client.get("/notifications/")
+                self.assertContains(response,'class="notification-entry unread"')
+                self.assertContains(response,'class="notification-entry"')
+                self.assertContains(response,"First line<br>Second line")
+                self.assertContains(response,">Unread</span>")
+                for other in (customer,owner,admin):
+                    if other != user:
+                        self.assertNotContains(response,f"Private {other.primary_role}")
+
     def test_event_creates_one_private_in_app_notification(self):
         a=User.objects.create_user("a@notice.com","Strongpass123!");b=User.objects.create_user("b@notice.com","Strongpass123!")
         class Target: pk=None

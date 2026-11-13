@@ -12,12 +12,25 @@ def is_product_purchasable(product):
 def current_price_for(product):
     now=timezone.now()
     return product.prices.filter(is_active=True, starts_at__lte=now).filter(Q(ends_at__isnull=True)|Q(ends_at__gt=now)).order_by("-starts_at").first()
+def _approved_supplier_can_publish(supplier):
+    return supplier.approval_status == "APPROVED" and supplier.operational_status == "ACTIVE"
+def publish_eligible_supplier_products(*, supplier, actor):
+    if not _approved_supplier_can_publish(supplier): return 0
+    products=Product.objects.filter(supplier=supplier,status="DRAFT",public_availability=True,category__is_active=True).prefetch_related("prices")
+    published=0
+    for product in products:
+        if not current_price_for(product): continue
+        product.status="APPROVED";product.moderation_reason="";product.reviewed_by=None;product.reviewed_at=timezone.now();product.save(update_fields=["status","moderation_reason","reviewed_by","reviewed_at","updated_at"])
+        log_action(actor=actor,action="PRODUCT_AUTO_PUBLISHED",target=product,after={"status":"APPROVED","reason":"APPROVED_SUPPLIER"})
+        published+=1
+    return published
 @transaction.atomic
-def create_product(*, supplier, actor, name, sku, category, description, unit_of_measure, minimum_order_quantity, amount_minor, currency="PHP"):
-    product=Product.objects.create(supplier=supplier, name=name, sku=sku, category=category, description=description, unit_of_measure=unit_of_measure, minimum_order_quantity=minimum_order_quantity)
+def create_product(*, supplier, actor, name, sku, category, description, unit_of_measure, minimum_order_quantity, amount_minor, currency="PHP", publish_for_approved_supplier=False):
+    status="APPROVED" if publish_for_approved_supplier and _approved_supplier_can_publish(supplier) else "DRAFT"
+    product=Product.objects.create(supplier=supplier, name=name, sku=sku, category=category, description=description, unit_of_measure=unit_of_measure, minimum_order_quantity=minimum_order_quantity,status=status,reviewed_at=timezone.now() if status == "APPROVED" else None)
     ProductPrice.objects.create(product=product, amount_minor=amount_minor, currency=currency, starts_at=timezone.now())
     Inventory.objects.create(product=product)
-    log_action(actor=actor, action="PRODUCT_CREATED", target=product); return product
+    log_action(actor=actor, action="PRODUCT_CREATED", target=product,after={"status":status}); return product
 @transaction.atomic
 def submit_for_review(*, product, actor):
     if product.status not in {"DRAFT", "REJECTED"}: raise ValidationError("Only draft or rejected products can be submitted.")
@@ -41,7 +54,7 @@ def update_product(*, product, actor, **changes):
     before={key:getattr(product,key) if key != "category" else (str(product.category_id) if product.category_id else None) for key in changes if key in allowed}
     for key,value in changes.items():
         if key in allowed: setattr(product,key,value)
-    if product.status == "APPROVED" and any(key in changes for key in {"name","sku","description","category","unit_of_measure","minimum_order_quantity"}):
+    if product.status == "APPROVED" and not _approved_supplier_can_publish(product.supplier) and any(key in changes for key in {"name","sku","description","category","unit_of_measure","minimum_order_quantity"}):
         product.status="DRAFT"; product.reviewed_by=None; product.reviewed_at=None
     product.full_clean(); product.save()
     log_action(actor=actor,action="PRODUCT_UPDATED",target=product,before=before,after={"status":product.status})
@@ -52,7 +65,7 @@ def update_product_price(*, product, actor, amount_minor):
     if current:
         current.is_active=False;current.ends_at=timezone.now();current.save(update_fields=["is_active","ends_at"])
     ProductPrice.objects.create(product=product, amount_minor=amount_minor, currency="PHP", starts_at=timezone.now())
-    if product.status == "APPROVED":
+    if product.status == "APPROVED" and not _approved_supplier_can_publish(product.supplier):
         product.status="DRAFT";product.reviewed_by=None;product.reviewed_at=None;product.save(update_fields=["status","reviewed_by","reviewed_at","updated_at"])
     log_action(actor=actor, action="PRODUCT_PRICE_UPDATED", target=product, after={"amount_minor":amount_minor,"status":product.status})
 @transaction.atomic
@@ -62,5 +75,6 @@ def transition_supplier(*, supplier, actor, status, reason=""):
     before={"approval_status":supplier.approval_status}; supplier.approval_status=status; supplier.review_reason=reason; supplier.save(update_fields=["approval_status","review_reason","updated_at"])
     log_action(actor=actor, action=f"SUPPLIER_{status}", target=supplier, before=before, after={"approval_status":status})
     if status=="APPROVED":
+        publish_eligible_supplier_products(supplier=supplier,actor=actor)
         from apps.notifications.services import emit
         emit("supplier.approved",supplier,{"recipient_ids":[str(x.user_id) for x in supplier.staff_memberships.filter(status="ACTIVE")],"link":"/supplier/dashboard/"})

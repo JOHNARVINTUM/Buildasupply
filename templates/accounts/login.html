@@ -4,15 +4,13 @@
 {% block content %}
 <style>
   :root { --login-navy:#102a43; --login-orange:#f26b38; --login-yellow:#f4c95d; --login-mint:#b8d8cf; --login-line:#d9dfdc; --login-muted:#657887; }
-  body { overflow:hidden; background:#f6f4ef; }
-  .shell { display:flex; flex-direction:column; height:100vh; max-width:1320px; overflow:hidden; padding:22px 30px 18px; }
-  .top { border-bottom:0; padding:6px 0 18px; }
-  .brand { color:var(--login-navy); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; letter-spacing:.16em; }
-  .top:after { content:""; position:absolute; left:0; right:0; top:0; height:4px; background:linear-gradient(90deg,var(--login-orange) 0 28%,var(--login-yellow) 28% 52%,var(--login-mint) 52% 100%); }
-  @keyframes login-grid { from { background-position:0 0,0 0; } to { background-position:34px 34px,-34px 0; } }
+  body { background:#f6f4ef; }
+  .shell { display:flex; flex-direction:column; max-width:1320px; padding:22px 30px 18px; }
+
+@keyframes login-grid { from { background-position:0 0,0 0; } to { background-position:34px 34px,-34px 0; } }
   @keyframes login-float { 0%,100% { transform:translate(0,0) rotate(-4deg); } 50% { transform:translate(14px,-12px) rotate(2deg); } }
   @keyframes login-orbit { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-  .login-page { position:fixed; z-index:2; top:69px; bottom:18px; left:50%; transform:translateX(-50%); display:grid; grid-template-columns:minmax(340px,.9fr) minmax(480px,1.1fr); width:min(1260px,calc(100% - 60px)); min-height:0; border:1px solid var(--login-line); border-radius:18px; background:#fff; box-shadow:0 18px 45px rgba(16,42,67,.08); overflow:hidden; }
+  .login-page { position:relative; z-index:2; display:grid; grid-template-columns:minmax(340px,.9fr) minmax(480px,1.1fr); width:100%; min-height:560px; border:1px solid var(--login-line); border-radius:18px; background:#fff; box-shadow:0 18px 45px rgba(16,42,67,.08); overflow:hidden; }
   .login-aside { position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; min-height:0; padding:42px 38px; color:#fff; background:var(--login-navy); }
   .login-aside:before { content:""; position:absolute; inset:0; opacity:.16; background-image:linear-gradient(rgba(255,255,255,.45) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.45) 1px,transparent 1px); background-size:34px 34px; transform:rotate(-7deg) scale(1.2); animation:login-grid 14s linear infinite; }
   .login-aside:after { content:""; position:absolute; width:340px; height:340px; right:-160px; bottom:-100px; border:1px solid rgba(244,201,93,.72); border-radius:50%; box-shadow:0 0 0 28px rgba(244,201,93,.08),0 0 0 58px rgba(244,201,93,.05); animation:login-orbit 26s linear infinite; }
@@ -48,7 +46,7 @@
   .join-links a { color:var(--login-navy); font-family:"Bahnschrift SemiBold","Trebuchet MS",sans-serif; font-weight:700; text-decoration:none; }
   .join-links a:hover { color:var(--login-orange); }
   .join-links .join-separator { color:#a4b2b6; padding:0 7px; }
-  @media (max-width:800px) { .shell { padding:18px 17px 10px; } .login-page { top:61px; bottom:10px; left:0; transform:none; grid-template-columns:1fr; width:100%; border-radius:13px; } .login-aside { display:none; } .login-form-wrap { padding:24px 28px; } }
+  @media (max-width:800px) { .shell { padding:18px 17px 10px; } .login-page { grid-template-columns:1fr; width:100%; min-height:0; border-radius:13px; } .login-aside { display:none; } .login-form-wrap { padding:24px 28px; } }
   @media (max-width:560px) { .login-form-wrap { padding:18px; } .login-form-wrap h2 { font-size:2.2rem; } .login-intro { font-size:.78rem; line-height:1.4; margin-bottom:17px; } .login-form label { font-size:.68rem; margin-top:10px; } .login-form input { margin-top:4px; padding:9px; font-size:.84rem; } .login-actions { margin-top:17px; padding-top:15px; } .login-actions button { padding:11px 15px; font-size:.8rem; } .join-links { margin-top:17px; padding-top:14px; font-size:.7rem; } }
   @media (prefers-reduced-motion: reduce) { .login-aside:before,.login-aside:after,.login-stamp,.login-form-wrap:before { animation:none; } }
 </style>

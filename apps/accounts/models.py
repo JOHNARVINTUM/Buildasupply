@@ -9,6 +9,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     class AccountStatus(models.TextChoices): ACTIVE = "ACTIVE", "Active"; PENDING_VERIFICATION = "PENDING_VERIFICATION", "Pending verification"; SUSPENDED = "SUSPENDED", "Suspended"; DEACTIVATED = "DEACTIVATED", "Deactivated"
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=160, blank=True)
+    phone = models.CharField(max_length=32, blank=True)
     primary_role = models.CharField(max_length=20, choices=GlobalRole.choices, default=GlobalRole.CUSTOMER)
     account_status = models.CharField(max_length=24, choices=AccountStatus.choices, default=AccountStatus.ACTIVE)
     is_staff, is_active = models.BooleanField(default=False), models.BooleanField(default=True)

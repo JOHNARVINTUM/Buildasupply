@@ -1,14 +1,18 @@
 from collections import OrderedDict
+import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import DatabaseError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from apps.catalog.selectors import customer_catalog_queryset
 from .forms import CartQuantityForm
 from .models import CartItem
 from .services import add_item, get_active_cart, update_quantity, validate_cart
+
+logger = logging.getLogger(__name__)
 
 
 VALIDATION_MESSAGES = {
@@ -75,7 +79,13 @@ def _cart_context(customer):
     }
 
 
-def browse(request): return render(request,"carts/browse.html",{"products":customer_catalog_queryset()[:24]})
+def browse(request):
+    try:
+        products=list(customer_catalog_queryset()[:24])
+    except DatabaseError:
+        logger.exception("Customer catalogue could not be loaded")
+        return render(request,"carts/browse.html",{"products":[],"catalog_error":True},status=503)
+    return render(request,"carts/browse.html",{"products":products})
 def product_detail(request,pk):
     product=customer_catalog_queryset().filter(pk=pk).first()
     form = CartQuantityForm(initial={"quantity": product.minimum_order_quantity}, minimum_order_quantity=product.minimum_order_quantity) if product else None

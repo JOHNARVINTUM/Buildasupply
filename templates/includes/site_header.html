@@ -1,0 +1,42 @@
+{% with current=request.resolver_match.url_name %}
+<style>
+  .site-header{box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px;max-width:1240px;margin:28px auto 0;width:calc(100% - 80px);padding:0 0 24px;border-bottom:2px solid #163e62;color:#163e62;font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;position:relative;z-index:3;flex-shrink:0}
+  .site-header .site-brand{display:flex;gap:12px;align-items:center;color:#163e62;text-decoration:none;font-size:1.05rem;font-weight:800;letter-spacing:.12em;max-width:100%}
+  .site-brand::before{content:'B';display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid #163e62;font:700 24px/1 monospace;background:linear-gradient(135deg,transparent 46%,#163e621c 46%,#163e621c 50%,transparent 50%)}
+  .site-header nav{display:flex;align-items:center;flex-wrap:wrap;gap:8px 22px;max-width:100%;min-width:0}
+  .site-header nav a{color:#163e62;font-size:.8rem;text-decoration:none;padding:8px 0;border-bottom:1px solid transparent;overflow-wrap:anywhere}
+  .site-header nav a:hover,.site-header nav a[aria-current=page]{border-bottom-color:#163e62}
+  .site-header :is(a,button):focus-visible{outline:3px solid #b57628;outline-offset:4px}
+  .site-header nav .about-nav-link{display:inline-flex;align-items:center;gap:6px;border:1px solid #102a43;border-radius:999px;color:#102a43;font:800 .72rem "Bahnschrift SemiBold","Trebuchet MS",sans-serif;letter-spacing:.04em;padding:8px 13px;text-decoration:none;transition:background .2s ease,color .2s ease,transform .2s ease}
+  .site-header nav .about-nav-link::after{content:"↗";color:#216869;font-size:.82rem;transition:transform .2s ease}
+  .site-header nav .about-nav-link:hover{background:#102a43;color:#fff;transform:translateY(-2px)}
+  .site-header nav .about-nav-link:hover::after{color:#f4c95d;transform:translate(2px,-2px)}
+  .site-header nav .about-nav-link[aria-current=page]{box-shadow:0 0 0 1px #102a43}
+  @media(max-width:600px){.site-header{width:calc(100% - 32px);margin-top:20px;gap:14px}.site-header nav{gap:4px 16px}}
+  @media(prefers-reduced-motion:reduce){.site-header nav .about-nav-link,.site-header nav .about-nav-link::after{transition:none}}
+</style>
+<header class="site-header">
+  <a class="site-brand" href="{% url 'home' %}" aria-label="BUILTASUPPLY home">BUILTASUPPLY</a>
+  <nav aria-label="Main navigation">
+    <a class="about-nav-link" href="{% url 'about' %}"{% if current == 'about' %} aria-current="page"{% endif %}>About us</a>
+    {% if user.is_authenticated %}
+      {% if user.primary_role == 'CUSTOMER' %}
+        <a href="{% url 'shop-browse' %}"{% if current == 'shop-browse' or current == 'shop-home' %} aria-current="page"{% endif %}>Supplies</a>
+        <a href="{% url 'shop-cart' %}"{% if current == 'shop-cart' %} aria-current="page"{% endif %}>Cart</a>
+        <a href="{% url 'shop-orders' %}"{% if current == 'shop-orders' %} aria-current="page"{% endif %}>Orders</a>
+        <a href="{% url 'customers:address-list' %}"{% if current == 'address-list' %} aria-current="page"{% endif %}>Manage addresses</a>
+      {% elif user.primary_role == 'SUPPLIER' %}
+        <a href="{% url 'supplier-dashboard' %}"{% if current == 'supplier-dashboard' or current == 'supplier-home' %} aria-current="page"{% endif %}>Dashboard</a>
+      {% elif user.primary_role == 'SUPERADMIN' %}
+        <a href="{% url 'operations-dashboard' %}"{% if current == 'operations-dashboard' or current == 'operations-home' %} aria-current="page"{% endif %}>Dashboard</a>
+      {% endif %}
+      <a href="{% url 'notifications-center' %}"{% if current == 'notifications-center' %} aria-current="page"{% endif %}>Notifications{% if notification_unread_count %} ({{ notification_unread_count }}){% endif %}</a>
+      <a href="{% url 'accounts:profile' %}"{% if current == 'profile' %} aria-current="page"{% endif %}>Profile</a>
+      <a href="{% url 'accounts:logout' %}">Sign out</a>
+    {% else %}
+      <a href="{% url 'accounts:login' %}"{% if current == 'login' %} aria-current="page"{% endif %}>Sign in</a>
+      <a href="{% url 'accounts:register' %}"{% if current == 'register' %} aria-current="page"{% endif %}>Create an account</a>
+    {% endif %}
+  </nav>
+</header>
+{% endwith %}
